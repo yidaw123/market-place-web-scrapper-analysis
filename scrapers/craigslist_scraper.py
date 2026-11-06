@@ -60,6 +60,8 @@ def scrape_craigslist_region(
     max_per_section: int = 18,
     fetch_details_for_gigs: bool = True,
     max_detail_fetches: int = 20,
+    country: str = "Canada",
+    province: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Scrape Craigslist Labor Gigs (lbg), Domestic Gigs (dmg), and Household Services (hss)
@@ -122,6 +124,8 @@ def scrape_craigslist_region(
                         "external_id": ext_id,
                         "platform": "craigslist",
                         "source_detail": f"{subdomain}/{section_code} ({section_label})",
+                        "country": country,
+                        "province": province,
                         "city_region": region_name,
                         "neighborhood": neighborhood,
                         "title": title,

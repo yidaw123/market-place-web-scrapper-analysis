@@ -21,6 +21,19 @@ function debouncedLoadPosts() {
   searchDebounce = setTimeout(loadPosts, 300);
 }
 
+async function refreshSummaryForGeo() {
+  const country = document.getElementById("filter-country").value || "all";
+  const province = document.getElementById("filter-province").value || "all";
+  const city = document.getElementById("filter-region").value || "all";
+  const qs = new URLSearchParams({ country, province, city_region: city }).toString();
+  const sumRes = await fetch(`/api/summary?${qs}`).then(r => r.json());
+  summaryData = sumRes;
+  renderKPIs(sumRes.kpis);
+  renderRecommendations(sumRes.recommendations || []);
+  renderCategoryBars(sumRes.category_breakdown || []);
+  renderRegionBars(sumRes.region_breakdown || [], sumRes.top_channels || []);
+}
+
 async function loadDashboard() {
   const [sumRes, setRes] = await Promise.all([
     fetch("/api/summary").then(r => r.json()),
@@ -29,11 +42,8 @@ async function loadDashboard() {
   summaryData = sumRes;
   currentSettings = setRes;
 
-  renderKPIs(sumRes.kpis);
-  renderRecommendations(sumRes.recommendations || []);
-  renderCategoryBars(sumRes.category_breakdown || []);
-  renderRegionBars(sumRes.region_breakdown || [], sumRes.top_channels || []);
   populateFilterDropdowns(sumRes);
+  await refreshSummaryForGeo();
   await loadPosts();
 }
 
@@ -133,19 +143,68 @@ function renderRegionBars(regions, channels) {
 
 function populateFilterDropdowns(sumRes) {
   const catSel = document.getElementById("filter-category");
-  const regSel = document.getElementById("filter-region");
-
   const currentCat = catSel.value || "all";
-  const currentReg = regSel.value || "all";
-
   catSel.innerHTML = `<option value="all">All Service Categories</option>` +
     (sumRes.categories_list || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   catSel.value = currentCat;
 
-  const regs = (sumRes.region_breakdown || []).map(r => r.city_region);
-  regSel.innerHTML = `<option value="all">All Locations / Forums</option>` +
-    regs.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
-  regSel.value = currentReg;
+  updateProvinceAndCityOptions();
+}
+
+function updateProvinceAndCityOptions() {
+  const country = document.getElementById("filter-country").value || "all";
+  const provSel = document.getElementById("filter-province");
+  const regSel = document.getElementById("filter-region");
+  const prevProv = provSel.value || "all";
+  const prevCity = regSel.value || "all";
+
+  const allRegions = (currentSettings && currentSettings.regions) ? currentSettings.regions : [];
+  const matchingCountryRegs = allRegions.filter(r => country === "all" || r.country === country);
+
+  const provinces = [...new Set(matchingCountryRegs.map(r => r.province).filter(Boolean))];
+  const provLabel = country === "Canada"
+    ? "All Canadian Provinces"
+    : country === "United States"
+    ? "All US States"
+    : "All Provinces / States";
+
+  provSel.innerHTML = `<option value="all">${provLabel}</option>` +
+    provinces.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  provSel.value = provinces.includes(prevProv) ? prevProv : "all";
+
+  const activeProv = provSel.value;
+  const matchingCityRegs = matchingCountryRegs.filter(r => activeProv === "all" || r.province === activeProv);
+  const cities = [...new Set(matchingCityRegs.map(r => r.name))];
+
+  const cityLabel = activeProv !== "all"
+    ? `All Cities in ${activeProv}`
+    : country === "Canada"
+    ? "All Canadian Cities"
+    : "All Cities";
+
+  regSel.innerHTML = `<option value="all">${esc(cityLabel)}</option>` +
+    cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  regSel.value = cities.includes(prevCity) ? prevCity : "all";
+}
+
+async function onCountryChange() {
+  document.getElementById("filter-province").value = "all";
+  document.getElementById("filter-region").value = "all";
+  updateProvinceAndCityOptions();
+  await refreshSummaryForGeo();
+  await loadPosts();
+}
+
+async function onProvinceChange() {
+  document.getElementById("filter-region").value = "all";
+  updateProvinceAndCityOptions();
+  await refreshSummaryForGeo();
+  await loadPosts();
+}
+
+async function onCityChange() {
+  await refreshSummaryForGeo();
+  await loadPosts();
 }
 
 function filterByCategory(cat) {
@@ -153,9 +212,18 @@ function filterByCategory(cat) {
   loadPosts();
 }
 
-function filterByRegion(reg) {
+async function filterByRegion(reg) {
+  const allRegions = (currentSettings && currentSettings.regions) ? currentSettings.regions : [];
+  const match = allRegions.find(r => r.name === reg);
+  if (match) {
+    document.getElementById("filter-country").value = match.country || "all";
+    updateProvinceAndCityOptions();
+    document.getElementById("filter-province").value = match.province || "all";
+    updateProvinceAndCityOptions();
+  }
   document.getElementById("filter-region").value = reg;
-  loadPosts();
+  await refreshSummaryForGeo();
+  await loadPosts();
 }
 
 function getFilterQueryString() {
@@ -163,6 +231,8 @@ function getFilterQueryString() {
     platform: document.getElementById("filter-platform").value,
     intent_type: document.getElementById("filter-intent").value,
     category: document.getElementById("filter-category").value,
+    country: document.getElementById("filter-country").value,
+    province: document.getElementById("filter-province").value,
     city_region: document.getElementById("filter-region").value,
     urgency: document.getElementById("filter-urgency").value,
     search: document.getElementById("filter-search").value,
@@ -180,7 +250,7 @@ async function loadPosts() {
 
   const tbody = document.getElementById("posts-tbody");
   if (!posts.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:28px;">No posts match the current filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px;">No posts match the current filters.</td></tr>`;
     return;
   }
 
@@ -221,6 +291,7 @@ async function loadPosts() {
           ${platBadge}
           <div style="font-size:0.78rem;margin-top:4px;font-weight:600;">${esc(p.source_detail)}</div>
           <div style="font-size:0.75rem;color:var(--muted);">${esc(locText)}</div>
+          ${p.province ? `<div style="font-size:0.72rem;color:#93c5fd;">${esc(p.province)}, ${esc(p.country)}</div>` : ""}
         </td>
         <td>
           <a class="post-title" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a>
@@ -230,6 +301,9 @@ async function loadPosts() {
         <td style="font-size:0.78rem;color:var(--muted);">
           <div>${esc(p.author)}</div>
           <div style="margin-top:4px;">${esc((p.posted_at || "").slice(0, 10))}</div>
+        </td>
+        <td>
+          <a class="btn" style="padding:6px 14px;font-size:0.8rem;" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">Link</a>
         </td>
       </tr>
     `;

@@ -18,24 +18,43 @@ USER_AGENT = (
 )
 
 CITY_MENTION_MAP = [
-    (r"\b(san francisco|sf bay|bay area|oakland|san jose|berkeley|peninsula|east bay)\b", "SF Bay Area, CA"),
-    (r"\b(austin|round rock|cedar park|pflugerville|atx)\b", "Austin, TX"),
-    (r"\b(nyc|brooklyn|queens|manhattan|bronx|staten island|new york city)\b", "New York City, NY"),
-    (r"\b(los angeles|santa monica|pasadena|burbank|socal|hollywood|long beach)\b", "Los Angeles, CA"),
-    (r"\b(chicago|chicagoland|evanston|naperville)\b", "Chicago, IL"),
-    (r"\b(seattle|bellevue|tacoma|redmond|kirkland)\b", "Seattle, WA"),
-    (r"\b(denver|boulder|aurora|littleton)\b", "Denver, CO"),
-    (r"\b(atlanta|decatur|marietta|alpharetta)\b", "Atlanta, GA"),
-    (r"\b(dallas|fort worth|dfw|plano|frisco|arlington)\b", "Dallas / Fort Worth, TX"),
+    # Canadian cities & provinces
+    (r"\b(toronto|gta|mississauga|brampton|scarborough|etobicoke|north york|markham|vaughan|oakville)\b", ("Toronto / GTA, ON", "Ontario", "Canada")),
+    (r"\b(ottawa|kanata|nepean|orleans)\b", ("Ottawa, ON", "Ontario", "Canada")),
+    (r"\b(hamilton|burlington|stoney creek|ancaster)\b", ("Hamilton / Burlington, ON", "Ontario", "Canada")),
+    (r"\b(kitchener|waterloo|cambridge|guelph)\b", ("Kitchener / Waterloo, ON", "Ontario", "Canada")),
+    (r"\b(london ontario|london, on)\b", ("London, ON", "Ontario", "Canada")),
+    (r"\b(vancouver|burnaby|surrey|richmond bc|coquitlam|new westminster|north van|lower mainland)\b", ("Vancouver / Lower Mainland, BC", "British Columbia", "Canada")),
+    (r"\b(victoria bc|saanich|langford)\b", ("Victoria, BC", "British Columbia", "Canada")),
+    (r"\b(kelowna|okanagan|kamloops)\b", ("Kelowna / Okanagan, BC", "British Columbia", "Canada")),
+    (r"\b(calgary|airdrie|okotoks|yyc)\b", ("Calgary, AB", "Alberta", "Canada")),
+    (r"\b(edmonton|st\.? albert|sherwood park|yeg)\b", ("Edmonton, AB", "Alberta", "Canada")),
+    (r"\b(montreal|laval|longueuil)\b", ("Montreal, QC", "Quebec", "Canada")),
+    (r"\b(quebec city|ville de quebec)\b", ("Quebec City, QC", "Quebec", "Canada")),
+    (r"\b(winnipeg|manitoba)\b", ("Winnipeg, MB", "Manitoba", "Canada")),
+    (r"\b(saskatoon|regina|saskatchewan)\b", ("Saskatoon, SK", "Saskatchewan", "Canada")),
+    (r"\b(halifax|dartmouth|nova scotia)\b", ("Halifax, NS", "Nova Scotia", "Canada")),
+    # US cities
+    (r"\b(san francisco|sf bay|bay area|oakland|san jose|berkeley|peninsula|east bay)\b", ("SF Bay Area, CA", "California", "United States")),
+    (r"\b(austin|round rock|cedar park|pflugerville|atx)\b", ("Austin, TX", "Texas", "United States")),
+    (r"\b(nyc|brooklyn|queens|manhattan|bronx|staten island|new york city)\b", ("New York City, NY", "New York", "United States")),
+    (r"\b(los angeles|santa monica|pasadena|burbank|socal|hollywood|long beach)\b", ("Los Angeles, CA", "California", "United States")),
+    (r"\b(chicago|chicagoland|evanston|naperville)\b", ("Chicago, IL", "Illinois", "United States")),
+    (r"\b(seattle|bellevue|tacoma|redmond|kirkland)\b", ("Seattle, WA", "Washington", "United States")),
 ]
 
 
-def detect_city_from_text(text: str, default_region: str = "National / DIY Forums") -> str:
+def detect_city_from_text(
+    text: str,
+    default_region: str = "National / DIY Forums",
+    default_province: str = "",
+    default_country: str = "National",
+):
     lower = text.lower()
-    for pattern, region_label in CITY_MENTION_MAP:
+    for pattern, (region_label, prov, country) in CITY_MENTION_MAP:
         if re.search(pattern, lower):
-            return region_label
-    return default_region
+            return region_label, prov, country
+    return default_region, default_province, default_country
 
 
 def _fetch_arctic_shift(subreddit: str, query: Optional[str] = None, limit: int = 25) -> Optional[List[Dict[str, Any]]]:
@@ -81,7 +100,12 @@ _HOME_SERVICE_FILTER = re.compile(
 )
 
 
-def _normalize_reddit_post(raw: Dict[str, Any], default_region: str) -> Optional[Dict[str, Any]]:
+def _normalize_reddit_post(
+    raw: Dict[str, Any],
+    default_region: str,
+    default_province: str = "",
+    default_country: str = "National",
+) -> Optional[Dict[str, Any]]:
     post_id = raw.get("id")
     title = (raw.get("title") or "").strip()
     if not post_id or not title:
@@ -102,13 +126,19 @@ def _normalize_reddit_post(raw: Dict[str, Any], default_region: str) -> Optional
         posted_at = datetime.now(timezone.utc).isoformat()
 
     city_region = default_region
+    province = default_province
+    country = default_country
     if default_region == "National / DIY Forums":
-        city_region = detect_city_from_text(f"{title} {selftext}", default_region)
+        city_region, province, country = detect_city_from_text(
+            f"{title} {selftext}", default_region, default_province, default_country
+        )
 
     return {
         "external_id": f"rd_{post_id}",
         "platform": "reddit",
         "source_detail": f"r/{subreddit}",
+        "country": country,
+        "province": province,
         "city_region": city_region,
         # Post flair (e.g. "Question") isn't a neighborhood; leave blank rather than mislabel location
         "neighborhood": "",
@@ -129,6 +159,8 @@ def scrape_reddit_city_subreddits(
     region_name: str,
     queries: List[str],
     limit_per_query: int = 12,
+    country: str = "Canada",
+    province: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Search local city subreddits (e.g., r/Austin, r/AskSF, r/AskNYC) for handyman/home service inquiries.
@@ -141,20 +173,24 @@ def scrape_reddit_city_subreddits(
         for raw in raw_posts:
             if local_filter and not _HOME_SERVICE_FILTER.search(f"{raw.get('title', '')} {raw.get('selftext', '')}"):
                 continue
-            norm = _normalize_reddit_post(raw, default_region=region_name)
+            norm = _normalize_reddit_post(
+                raw,
+                default_region=region_name,
+                default_province=province,
+                default_country=country,
+            )
             if norm and norm["external_id"] not in results:
                 results[norm["external_id"]] = norm
 
     for sub in subreddits[:2]:
-        search_failed = False
+        sub_before = len(results)
         for q in search_terms:
             raw_posts = _fetch_arctic_shift(subreddit=sub, query=q, limit=limit_per_query)
             if raw_posts is None:
-                search_failed = True
                 break
             _add(raw_posts)
-        if search_failed:
-            # Big subs (r/nyc, r/LosAngeles) time out on title search; scan the latest 100 posts instead
+        if len(results) - sub_before < 4:
+            # Also scan the latest 100 posts with broad home-service keyword matching
             _add(_fetch_arctic_shift(subreddit=sub, query=None, limit=100) or [], local_filter=True)
 
     return list(results.values())

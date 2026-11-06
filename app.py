@@ -188,12 +188,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", f"{ctype}; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
                 self.end_headers()
                 self.wfile.write(content)
                 return
 
         if path == "/api/summary":
-            summary = get_analytics_summary()
+            summary = get_analytics_summary(
+                country=qs.get("country", ["all"])[0],
+                province=qs.get("province", ["all"])[0],
+                city_region=qs.get("city_region", ["all"])[0],
+            )
             summary["recommendations"] = build_marketing_recommendations(summary)
             summary["categories_list"] = list(SERVICE_CATEGORIES.keys())
             self._send_json(summary)
@@ -204,6 +209,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 platform=qs.get("platform", ["all"])[0],
                 intent_type=qs.get("intent_type", ["demand_only"])[0],
                 category=qs.get("category", ["all"])[0],
+                country=qs.get("country", ["all"])[0],
+                province=qs.get("province", ["all"])[0],
                 city_region=qs.get("city_region", ["all"])[0],
                 urgency=qs.get("urgency", ["all"])[0],
                 search=qs.get("search", [""])[0],
@@ -218,6 +225,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 platform=qs.get("platform", ["all"])[0],
                 intent_type=qs.get("intent_type", ["all"])[0],
                 category=qs.get("category", ["all"])[0],
+                country=qs.get("country", ["all"])[0],
+                province=qs.get("province", ["all"])[0],
                 city_region=qs.get("city_region", ["all"])[0],
                 urgency=qs.get("urgency", ["all"])[0],
                 search=qs.get("search", [""])[0],
@@ -231,6 +240,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "ID",
                     "Platform",
                     "Source / Channel",
+                    "Country",
+                    "Province / State",
                     "City / Region",
                     "Neighborhood",
                     "Intent Type",
@@ -254,6 +265,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         p.get("external_id"),
                         p.get("platform"),
                         p.get("source_detail"),
+                        p.get("country"),
+                        p.get("province"),
                         p.get("city_region"),
                         p.get("neighborhood"),
                         p.get("intent_type"),

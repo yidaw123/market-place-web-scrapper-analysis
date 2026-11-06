@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Handyman Marketplace — Demand & Lead Intelligence</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
 </head>
 <body>
   <div class="container">
@@ -104,8 +104,17 @@
         <select id="filter-category" onchange="loadPosts()">
           <option value="all">All Service Categories</option>
         </select>
-        <select id="filter-region" onchange="loadPosts()">
-          <option value="all">All Locations / Forums</option>
+        <select id="filter-country" onchange="onCountryChange()">
+          <option value="all">All Countries & Forums</option>
+          <option value="Canada">All of Canada</option>
+          <option value="United States">United States</option>
+          <option value="National">National / DIY Forums</option>
+        </select>
+        <select id="filter-province" onchange="onProvinceChange()">
+          <option value="all">All Provinces / States</option>
+        </select>
+        <select id="filter-region" onchange="onCityChange()">
+          <option value="all">All Cities</option>
         </select>
         <select id="filter-urgency" onchange="loadPosts()">
           <option value="all">All Urgency Levels</option>
@@ -119,11 +128,12 @@
         <table>
           <thead>
             <tr>
-              <th style="width:140px;">Intent & Score</th>
-              <th style="width:185px;">Service Category</th>
-              <th style="width:175px;">Platform & Location</th>
+              <th style="width:135px;">Intent & Score</th>
+              <th style="width:175px;">Service Category</th>
+              <th style="width:185px;">Platform & Location</th>
               <th>Post Details & Tailored Ad Hook</th>
               <th style="width:120px;">Author & Date</th>
+              <th style="width:95px;">Link</th>
             </tr>
           </thead>
           <tbody id="posts-tbody"></tbody>
@@ -173,6 +183,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2"></script>
 </body>
 </html>

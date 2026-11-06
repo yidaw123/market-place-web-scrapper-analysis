@@ -77,6 +77,9 @@ def run_scrape_pipeline(
                     keywords,
                     15,
                     fetch_cl_details,
+                    20,
+                    reg.get("country", "Canada"),
+                    reg.get("province", ""),
                 )
                 future_map[fut] = f"Craigslist ({reg['name']})"
 
@@ -89,6 +92,8 @@ def run_scrape_pipeline(
                         reg["name"],
                         keywords,
                         10,
+                        reg.get("country", "Canada"),
+                        reg.get("province", ""),
                     )
                     future_map[fut] = f"Reddit Local ({reg['name']})"
 

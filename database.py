@@ -7,9 +7,168 @@ from typing import List, Dict, Any, Optional
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_research.db")
 
 DEFAULT_REGIONS = [
+    # --- Canada: Ontario ---
+    {
+        "id": "toronto",
+        "name": "Toronto / GTA, ON",
+        "city": "Toronto / GTA",
+        "province": "Ontario",
+        "country": "Canada",
+        "craigslist_subdomain": "toronto",
+        "subreddits": ["askTO", "toronto", "GTA", "mississauga", "Brampton"],
+        "enabled": True,
+    },
+    {
+        "id": "ottawa",
+        "name": "Ottawa, ON",
+        "city": "Ottawa",
+        "province": "Ontario",
+        "country": "Canada",
+        "craigslist_subdomain": "ottawa",
+        "subreddits": ["ottawa"],
+        "enabled": True,
+    },
+    {
+        "id": "hamilton",
+        "name": "Hamilton / Burlington, ON",
+        "city": "Hamilton / Burlington",
+        "province": "Ontario",
+        "country": "Canada",
+        "craigslist_subdomain": "hamilton",
+        "subreddits": ["Hamilton", "BurlingtonON"],
+        "enabled": True,
+    },
+    {
+        "id": "kitchener",
+        "name": "Kitchener / Waterloo, ON",
+        "city": "Kitchener / Waterloo",
+        "province": "Ontario",
+        "country": "Canada",
+        "craigslist_subdomain": "kitchener",
+        "subreddits": ["waterloo", "kitchener"],
+        "enabled": False,
+    },
+    {
+        "id": "london_on",
+        "name": "London, ON",
+        "city": "London",
+        "province": "Ontario",
+        "country": "Canada",
+        "craigslist_subdomain": "londonon",
+        "subreddits": ["londonontario"],
+        "enabled": False,
+    },
+    # --- Canada: British Columbia ---
+    {
+        "id": "vancouver",
+        "name": "Vancouver / Lower Mainland, BC",
+        "city": "Vancouver / Lower Mainland",
+        "province": "British Columbia",
+        "country": "Canada",
+        "craigslist_subdomain": "vancouver",
+        "subreddits": ["vancouver", "AskVan", "burnaby", "SurreyBC"],
+        "enabled": True,
+    },
+    {
+        "id": "victoria",
+        "name": "Victoria, BC",
+        "city": "Victoria",
+        "province": "British Columbia",
+        "country": "Canada",
+        "craigslist_subdomain": "victoria",
+        "subreddits": ["VictoriaBC"],
+        "enabled": True,
+    },
+    {
+        "id": "kelowna",
+        "name": "Kelowna / Okanagan, BC",
+        "city": "Kelowna / Okanagan",
+        "province": "British Columbia",
+        "country": "Canada",
+        "craigslist_subdomain": "kelowna",
+        "subreddits": ["kelowna"],
+        "enabled": False,
+    },
+    # --- Canada: Alberta ---
+    {
+        "id": "calgary",
+        "name": "Calgary, AB",
+        "city": "Calgary",
+        "province": "Alberta",
+        "country": "Canada",
+        "craigslist_subdomain": "calgary",
+        "subreddits": ["Calgary"],
+        "enabled": True,
+    },
+    {
+        "id": "edmonton",
+        "name": "Edmonton, AB",
+        "city": "Edmonton",
+        "province": "Alberta",
+        "country": "Canada",
+        "craigslist_subdomain": "edmonton",
+        "subreddits": ["Edmonton"],
+        "enabled": True,
+    },
+    # --- Canada: Quebec ---
+    {
+        "id": "montreal",
+        "name": "Montreal, QC",
+        "city": "Montreal",
+        "province": "Quebec",
+        "country": "Canada",
+        "craigslist_subdomain": "montreal",
+        "subreddits": ["montreal"],
+        "enabled": True,
+    },
+    {
+        "id": "quebec_city",
+        "name": "Quebec City, QC",
+        "city": "Quebec City",
+        "province": "Quebec",
+        "country": "Canada",
+        "craigslist_subdomain": "quebec",
+        "subreddits": ["villedequebec"],
+        "enabled": False,
+    },
+    # --- Canada: Manitoba, Saskatchewan, Nova Scotia ---
+    {
+        "id": "winnipeg",
+        "name": "Winnipeg, MB",
+        "city": "Winnipeg",
+        "province": "Manitoba",
+        "country": "Canada",
+        "craigslist_subdomain": "winnipeg",
+        "subreddits": ["Winnipeg"],
+        "enabled": False,
+    },
+    {
+        "id": "saskatoon",
+        "name": "Saskatoon, SK",
+        "city": "Saskatoon",
+        "province": "Saskatchewan",
+        "country": "Canada",
+        "craigslist_subdomain": "saskatoon",
+        "subreddits": ["saskatoon"],
+        "enabled": False,
+    },
+    {
+        "id": "halifax",
+        "name": "Halifax, NS",
+        "city": "Halifax",
+        "province": "Nova Scotia",
+        "country": "Canada",
+        "craigslist_subdomain": "halifax",
+        "subreddits": ["halifax"],
+        "enabled": False,
+    },
+    # --- United States ---
     {
         "id": "sfbay",
         "name": "SF Bay Area, CA",
+        "city": "SF Bay Area",
+        "province": "California",
+        "country": "United States",
         "craigslist_subdomain": "sfbay",
         "subreddits": ["bayarea", "AskSF", "sanfrancisco", "oakland", "SanJose"],
         "enabled": True,
@@ -17,6 +176,9 @@ DEFAULT_REGIONS = [
     {
         "id": "austin",
         "name": "Austin, TX",
+        "city": "Austin",
+        "province": "Texas",
+        "country": "United States",
         "craigslist_subdomain": "austin",
         "subreddits": ["Austin", "AskAustin"],
         "enabled": True,
@@ -24,6 +186,9 @@ DEFAULT_REGIONS = [
     {
         "id": "nyc",
         "name": "New York City, NY",
+        "city": "New York City",
+        "province": "New York",
+        "country": "United States",
         "craigslist_subdomain": "newyork",
         "subreddits": ["AskNYC", "nyc", "brooklyn", "queens"],
         "enabled": True,
@@ -31,6 +196,9 @@ DEFAULT_REGIONS = [
     {
         "id": "la",
         "name": "Los Angeles, CA",
+        "city": "Los Angeles",
+        "province": "California",
+        "country": "United States",
         "craigslist_subdomain": "losangeles",
         "subreddits": ["AskLosAngeles", "LosAngeles"],
         "enabled": True,
@@ -38,6 +206,9 @@ DEFAULT_REGIONS = [
     {
         "id": "chicago",
         "name": "Chicago, IL",
+        "city": "Chicago",
+        "province": "Illinois",
+        "country": "United States",
         "craigslist_subdomain": "chicago",
         "subreddits": ["chicago", "AskChicago"],
         "enabled": False,
@@ -45,29 +216,11 @@ DEFAULT_REGIONS = [
     {
         "id": "seattle",
         "name": "Seattle, WA",
+        "city": "Seattle",
+        "province": "Washington",
+        "country": "United States",
         "craigslist_subdomain": "seattle",
         "subreddits": ["Seattle", "AskSeattle"],
-        "enabled": False,
-    },
-    {
-        "id": "denver",
-        "name": "Denver, CO",
-        "craigslist_subdomain": "denver",
-        "subreddits": ["Denver"],
-        "enabled": False,
-    },
-    {
-        "id": "atlanta",
-        "name": "Atlanta, GA",
-        "craigslist_subdomain": "atlanta",
-        "subreddits": ["Atlanta"],
-        "enabled": False,
-    },
-    {
-        "id": "dallas",
-        "name": "Dallas / Fort Worth, TX",
-        "craigslist_subdomain": "dallas",
-        "subreddits": ["Dallas", "FortWorth"],
         "enabled": False,
     },
 ]
@@ -115,6 +268,8 @@ def init_db() -> None:
             external_id TEXT UNIQUE NOT NULL,
             platform TEXT NOT NULL,
             source_detail TEXT NOT NULL,
+            country TEXT DEFAULT 'National',
+            province TEXT DEFAULT '',
             city_region TEXT NOT NULL,
             neighborhood TEXT DEFAULT '',
             title TEXT NOT NULL,
@@ -165,12 +320,48 @@ def init_db() -> None:
         """
     )
 
-    # Seed default settings if not present
-    cur.execute("SELECT COUNT(*) as cnt FROM settings WHERE key = 'regions'")
-    if cur.fetchone()["cnt"] == 0:
+    # Schema migration for existing DBs: add country and province columns if missing
+    cur.execute("PRAGMA table_info(posts)")
+    existing_cols = {row["name"] for row in cur.fetchall()}
+    if "country" not in existing_cols:
+        cur.execute("ALTER TABLE posts ADD COLUMN country TEXT DEFAULT 'National'")
+    if "province" not in existing_cols:
+        cur.execute("ALTER TABLE posts ADD COLUMN province TEXT DEFAULT ''")
+
+    # Seed or upgrade regions setting so new Canadian provinces/cities are always present
+    cur.execute("SELECT value FROM settings WHERE key = 'regions'")
+    reg_row = cur.fetchone()
+    if not reg_row:
         cur.execute(
             "INSERT INTO settings (key, value) VALUES (?, ?)",
             ("regions", json.dumps(DEFAULT_REGIONS)),
+        )
+    else:
+        try:
+            saved_regions = json.loads(reg_row["value"])
+            saved_by_id = {r["id"]: r for r in saved_regions if isinstance(r, dict) and "id" in r}
+            merged_regions = []
+            for d in DEFAULT_REGIONS:
+                if d["id"] in saved_by_id:
+                    merged = {**d, "enabled": saved_by_id[d["id"]].get("enabled", d["enabled"])}
+                else:
+                    merged = dict(d)
+                merged_regions.append(merged)
+            cur.execute(
+                "UPDATE settings SET value = ? WHERE key = 'regions'",
+                (json.dumps(merged_regions),),
+            )
+        except Exception:
+            cur.execute(
+                "UPDATE settings SET value = ? WHERE key = 'regions'",
+                (json.dumps(DEFAULT_REGIONS),),
+            )
+
+    # Backfill country/province on any older rows based on city_region
+    for reg in DEFAULT_REGIONS:
+        cur.execute(
+            "UPDATE posts SET country = ?, province = ? WHERE city_region = ? AND (country IS NULL OR country = '' OR country = 'National')",
+            (reg["country"], reg["province"], reg["name"]),
         )
     cur.execute("SELECT COUNT(*) as cnt FROM settings WHERE key = 'national_subreddits'")
     if cur.fetchone()["cnt"] == 0:
@@ -293,6 +484,9 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
         cur.execute(
             """
             UPDATE posts SET
+                country = ?,
+                province = ?,
+                city_region = ?,
                 intent_type = ?,
                 intent_score = ?,
                 primary_category = ?,
@@ -306,6 +500,9 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
             WHERE external_id = ?
             """,
             (
+                post.get("country", "National"),
+                post.get("province", ""),
+                post.get("city_region", "National / Online"),
                 post.get("intent_type", "diy_help_needed"),
                 post.get("intent_score", 50),
                 post.get("primary_category", "General Handyman"),
@@ -326,17 +523,19 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
         cur.execute(
             """
             INSERT INTO posts (
-                external_id, platform, source_detail, city_region, neighborhood,
+                external_id, platform, source_detail, country, province, city_region, neighborhood,
                 title, body, url, author, price_mention, posted_at, scraped_at,
                 intent_type, intent_score, primary_category, secondary_categories,
                 urgency, diy_difficulty, extracted_pain_point, marketing_angle,
                 classified_by, score, num_comments
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 post["external_id"],
                 post["platform"],
                 post.get("source_detail", ""),
+                post.get("country", "National"),
+                post.get("province", ""),
                 post.get("city_region", "National / Online"),
                 post.get("neighborhood", ""),
                 post["title"],
@@ -368,6 +567,8 @@ def query_posts(
     platform: Optional[str] = None,
     intent_type: Optional[str] = None,
     category: Optional[str] = None,
+    country: Optional[str] = None,
+    province: Optional[str] = None,
     city_region: Optional[str] = None,
     urgency: Optional[str] = None,
     search: Optional[str] = None,
@@ -394,6 +595,14 @@ def query_posts(
     if category and category != "all":
         clauses.append("primary_category = ?")
         params.append(category)
+
+    if country and country != "all":
+        clauses.append("country = ?")
+        params.append(country)
+
+    if province and province != "all":
+        clauses.append("province = ?")
+        params.append(province)
 
     if city_region and city_region != "all":
         clauses.append("city_region = ?")
@@ -432,23 +641,45 @@ def query_posts(
     return rows
 
 
-def get_analytics_summary() -> Dict[str, Any]:
+def get_analytics_summary(
+    country: Optional[str] = None,
+    province: Optional[str] = None,
+    city_region: Optional[str] = None,
+) -> Dict[str, Any]:
     conn = get_connection()
     cur = conn.cursor()
 
+    geo_clauses: List[str] = []
+    geo_params: List[Any] = []
+    if country and country != "all":
+        geo_clauses.append("country = ?")
+        geo_params.append(country)
+    if province and province != "all":
+        geo_clauses.append("province = ?")
+        geo_params.append(province)
+    if city_region and city_region != "all":
+        geo_clauses.append("city_region = ?")
+        geo_params.append(city_region)
+
+    where_geo_only = ("WHERE " + " AND ".join(geo_clauses)) if geo_clauses else ""
+    where_not_irr = "WHERE intent_type != 'irrelevant'" + ((" AND " + " AND ".join(geo_clauses)) if geo_clauses else "")
+    where_demand = "WHERE intent_type IN ('customer_hiring', 'diy_help_needed')" + ((" AND " + " AND ".join(geo_clauses)) if geo_clauses else "")
+
     # Total counts by intent
     cur.execute(
-        """
+        f"""
         SELECT intent_type, COUNT(*) as count
         FROM posts
+        {where_geo_only}
         GROUP BY intent_type
-        """
+        """,
+        geo_params,
     )
     intent_counts = {r["intent_type"]: r["count"] for r in cur.fetchall()}
 
     # Demand breakdown by service category (customer_hiring + diy_help_needed vs service_provider_ad)
     cur.execute(
-        """
+        f"""
         SELECT
             primary_category,
             SUM(CASE WHEN intent_type = 'customer_hiring' THEN 1 ELSE 0 END) as hiring_count,
@@ -457,33 +688,37 @@ def get_analytics_summary() -> Dict[str, Any]:
             SUM(CASE WHEN intent_type = 'service_provider_ad' THEN 1 ELSE 0 END) as provider_supply,
             ROUND(AVG(CASE WHEN intent_type IN ('customer_hiring', 'diy_help_needed') THEN intent_score ELSE NULL END), 1) as avg_intent_score
         FROM posts
-        WHERE intent_type != 'irrelevant'
+        {where_not_irr}
         GROUP BY primary_category
         ORDER BY total_demand DESC, hiring_count DESC
-        """
+        """,
+        geo_params,
     )
     category_breakdown = [dict(r) for r in cur.fetchall()]
 
     # Regional breakdown
     cur.execute(
-        """
+        f"""
         SELECT
             city_region,
+            province,
+            country,
             SUM(CASE WHEN intent_type = 'customer_hiring' THEN 1 ELSE 0 END) as hiring_count,
             SUM(CASE WHEN intent_type = 'diy_help_needed' THEN 1 ELSE 0 END) as diy_count,
             SUM(CASE WHEN intent_type IN ('customer_hiring', 'diy_help_needed') THEN 1 ELSE 0 END) as total_demand,
             SUM(CASE WHEN intent_type = 'service_provider_ad' THEN 1 ELSE 0 END) as provider_supply
         FROM posts
-        WHERE intent_type != 'irrelevant'
-        GROUP BY city_region
+        {where_not_irr}
+        GROUP BY city_region, province, country
         ORDER BY total_demand DESC
-        """
+        """,
+        geo_params,
     )
     region_breakdown = [dict(r) for r in cur.fetchall()]
 
     # Platform breakdown
     cur.execute(
-        """
+        f"""
         SELECT
             platform,
             SUM(CASE WHEN intent_type = 'customer_hiring' THEN 1 ELSE 0 END) as hiring_count,
@@ -491,15 +726,16 @@ def get_analytics_summary() -> Dict[str, Any]:
             SUM(CASE WHEN intent_type = 'service_provider_ad' THEN 1 ELSE 0 END) as provider_supply,
             COUNT(*) as total
         FROM posts
-        WHERE intent_type != 'irrelevant'
+        {where_not_irr}
         GROUP BY platform
-        """
+        """,
+        geo_params,
     )
     platform_breakdown = [dict(r) for r in cur.fetchall()]
 
     # Top neighborhoods / subreddits for customer demand
     cur.execute(
-        """
+        f"""
         SELECT
             source_detail,
             platform,
@@ -507,11 +743,12 @@ def get_analytics_summary() -> Dict[str, Any]:
             COUNT(*) as demand_count,
             SUM(CASE WHEN intent_type = 'customer_hiring' THEN 1 ELSE 0 END) as direct_hiring
         FROM posts
-        WHERE intent_type IN ('customer_hiring', 'diy_help_needed')
+        {where_demand}
         GROUP BY source_detail, platform, city_region
         ORDER BY direct_hiring DESC, demand_count DESC
         LIMIT 12
-        """
+        """,
+        geo_params,
     )
     top_channels = [dict(r) for r in cur.fetchall()]
 
