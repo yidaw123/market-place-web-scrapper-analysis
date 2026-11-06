@@ -13,7 +13,6 @@ function esc(str) {
     .replace(/'/g, "&#39;");
 }
 
-// Only allow http(s) links from scraped data (blocks javascript: URLs)
 function safeUrl(url) {
   return /^https?:\/\//i.test(url || "") ? url : "#";
 }
@@ -21,7 +20,36 @@ function safeUrl(url) {
 let searchDebounce = null;
 function debouncedLoadPosts() {
   clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(loadPosts, 300);
+  searchDebounce = setTimeout(loadPosts, 250);
+}
+
+function switchTab(tabName) {
+  const isLeads = tabName === "leads";
+  document.getElementById("view-leads").classList.toggle("hidden", !isLeads);
+  document.getElementById("view-analytics").classList.toggle("hidden", isLeads);
+  document.getElementById("tab-leads").classList.toggle("active", isLeads);
+  document.getElementById("tab-analytics").classList.toggle("active", !isLeads);
+}
+
+function syncActiveKpiCard(intentVal) {
+  const types = ["demand_only", "customer_hiring", "diy_help_needed", "service_provider_ad", "job_posting"];
+  types.forEach(t => {
+    const el = document.getElementById(`kpi-card-${t}`);
+    if (el) el.classList.toggle("active", t === intentVal);
+  });
+}
+
+function quickSelectIntent(intentVal) {
+  document.getElementById("filter-intent").value = intentVal;
+  syncActiveKpiCard(intentVal);
+  switchTab("leads");
+  loadPosts();
+}
+
+function onIntentDropdownChange() {
+  const val = document.getElementById("filter-intent").value;
+  syncActiveKpiCard(val);
+  loadPosts();
 }
 
 async function refreshSummaryForGeo() {
@@ -75,7 +103,7 @@ function renderCategoryBars(cats) {
           <strong>${esc(c.primary_category)}</strong>
           <span style="color:var(--muted)">
             <span style="color:#34d399">${c.hiring_count} Hiring</span> ·
-            <span style="color:#fbbf24">${c.diy_count} DIY Help</span> ·
+            <span style="color:#fbbf24">${c.diy_count} DIY</span> ·
             <span style="color:#c084fc">${c.provider_supply} Supply</span>
           </span>
         </div>
@@ -117,9 +145,9 @@ function renderRegionBars(regions, channels) {
   }).join("");
 
   const chEl = document.getElementById("top-channels-list");
-  chEl.innerHTML = channels.slice(0, 6).map(ch => `
-    <span class="badge ${ch.platform === 'reddit' ? 'b-reddit' : 'b-craigslist'}" style="margin:3px 4px 3px 0; padding:5px 10px;">
-      ${esc(ch.source_detail)}: ${ch.demand_count} leads
+  chEl.innerHTML = channels.slice(0, 8).map(ch => `
+    <span class="badge b-cat" style="margin:3px 4px 3px 0; padding:5px 10px;">
+      ${esc(ch.source_detail)}: ${ch.demand_count}
     </span>
   `).join("");
 }
@@ -127,7 +155,7 @@ function renderRegionBars(regions, channels) {
 function populateFilterDropdowns(sumRes) {
   const catSel = document.getElementById("filter-category");
   const currentCat = catSel.value || "all";
-  catSel.innerHTML = `<option value="all">All Service Categories</option>` +
+  catSel.innerHTML = `<option value="all">All Categories</option>` +
     (sumRes.categories_list || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   catSel.value = currentCat;
 
@@ -146,9 +174,9 @@ function updateProvinceAndCityOptions() {
 
   const provinces = [...new Set(matchingCountryRegs.map(r => r.province).filter(Boolean))];
   const provLabel = country === "Canada"
-    ? "All Canadian Provinces"
+    ? "All Provinces"
     : country === "United States"
-    ? "All US States"
+    ? "All States"
     : "All Provinces / States";
 
   provSel.innerHTML = `<option value="all">${provLabel}</option>` +
@@ -160,7 +188,7 @@ function updateProvinceAndCityOptions() {
   const cities = [...new Set(matchingCityRegs.map(r => r.name))];
 
   const cityLabel = activeProv !== "all"
-    ? `All Cities in ${activeProv}`
+    ? `All in ${activeProv}`
     : country === "Canada"
     ? "All Canadian Cities"
     : "All Cities";
@@ -192,6 +220,7 @@ async function onCityChange() {
 
 function filterByCategory(cat) {
   document.getElementById("filter-category").value = cat;
+  switchTab("leads");
   loadPosts();
 }
 
@@ -205,6 +234,7 @@ async function filterByRegion(reg) {
     updateProvinceAndCityOptions();
   }
   document.getElementById("filter-region").value = reg;
+  switchTab("leads");
   await refreshSummaryForGeo();
   await loadPosts();
 }
@@ -250,7 +280,6 @@ function applySortAndRender() {
       if (uDiff !== 0) return uDiff;
       return (b.intent_score || 0) - (a.intent_score || 0);
     }
-    // Default: relevance (hiring first, then intent score, then newest date)
     const iDiff = (intentRank[b.intent_type] || 0) - (intentRank[a.intent_type] || 0);
     if (iDiff !== 0) return iDiff;
     const sDiff = (b.intent_score || 0) - (a.intent_score || 0);
@@ -272,6 +301,7 @@ async function resetFilters() {
   document.getElementById("filter-urgency").value = "all";
   document.getElementById("filter-sort").value = "relevance";
   document.getElementById("filter-search").value = "";
+  syncActiveKpiCard("demand_only");
   updateProvinceAndCityOptions();
   await refreshSummaryForGeo();
   await loadPosts();
@@ -305,20 +335,20 @@ function renderPostsPage() {
   const tbody = document.getElementById("posts-tbody");
   const pagBar = document.getElementById("pagination-bar");
   if (!posts.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px;">No posts match the current filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">No posts match your current filters.</td></tr>`;
     if (pagBar) pagBar.innerHTML = "";
     return;
   }
 
   tbody.innerHTML = posts.map(p => {
     const intentBadge = p.intent_type === "customer_hiring"
-      ? `<span class="badge b-hiring">Hiring Pro (${p.intent_score})</span>`
+      ? `<span class="badge b-hiring">Hiring Pro</span>`
       : p.intent_type === "diy_help_needed"
-      ? `<span class="badge b-diy">DIY Help (${p.intent_score})</span>`
+      ? `<span class="badge b-diy">DIY Help</span>`
       : p.intent_type === "job_posting"
-      ? `<span class="badge b-job">Job Posting / Recruiting</span>`
+      ? `<span class="badge b-job">Job Posting</span>`
       : p.intent_type === "irrelevant"
-      ? `<span class="badge">Irrelevant</span>`
+      ? `<span class="badge b-cat">Irrelevant</span>`
       : `<span class="badge b-supply">Provider Ad</span>`;
 
     const platBadge = p.platform === "reddit"
@@ -330,39 +360,34 @@ function renderPostsPage() {
       : `<span class="badge b-craigslist">Craigslist</span>`;
 
     const urgBadge = p.urgency === "high"
-      ? `<span class="badge b-high" style="margin-left:4px;">Urgent</span>`
+      ? `<div style="margin-top:5px;"><span class="badge b-high">Urgent</span></div>`
       : "";
 
-    const bodySnippet = (p.body || "").slice(0, 220) + ((p.body || "").length > 220 ? "..." : "");
-    const locText = p.neighborhood ? `${p.city_region} (${p.neighborhood})` : p.city_region;
+    const bodySnippet = (p.body || "").trim();
+    const dateStr = (p.posted_at || "").slice(0, 10);
 
     return `
       <tr>
         <td>
+          <a class="post-title" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a>
+          ${bodySnippet ? `<div class="post-body">${esc(bodySnippet)}</div>` : ""}
+        </td>
+        <td>
+          <span class="badge b-cat">${esc(p.primary_category)}</span>
+          ${p.price_mention ? `<div style="color:#34d399;font-size:0.78rem;margin-top:6px;font-weight:500;">${esc(p.price_mention)}</div>` : ""}
+        </td>
+        <td>
           ${intentBadge}
           ${urgBadge}
-          <div style="font-size:0.73rem;color:var(--muted);margin-top:4px;">${esc(p.classified_by)}</div>
         </td>
         <td>
-          <strong>${esc(p.primary_category)}</strong>
-          ${p.price_mention ? `<div style="color:#34d399;font-size:0.78rem;margin-top:2px;">Budget/Price: ${esc(p.price_mention)}</div>` : ""}
+          <div style="font-weight:600;font-size:0.83rem;color:var(--text-secondary);">${esc(p.city_region)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
+            ${platBadge}
+            <span style="font-size:0.75rem;color:var(--muted);">${esc(dateStr)}</span>
+          </div>
         </td>
-        <td>
-          ${platBadge}
-          <div style="font-size:0.78rem;margin-top:4px;font-weight:600;">${esc(p.source_detail)}</div>
-          <div style="font-size:0.75rem;color:var(--muted);">${esc(locText)}</div>
-          ${p.province ? `<div style="font-size:0.72rem;color:#93c5fd;">${esc(p.province)}, ${esc(p.country)}</div>` : ""}
-        </td>
-        <td>
-          <a class="post-title" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a>
-          <div class="post-body">${esc(bodySnippet)}</div>
-          <div class="ad-hook"><strong>Ad Hook:</strong> ${esc(p.marketing_angle)}</div>
-        </td>
-        <td style="font-size:0.78rem;color:var(--muted);">
-          <div>${esc(p.author)}</div>
-          <div style="margin-top:4px;">${esc((p.posted_at || "").slice(0, 10))}</div>
-        </td>
-        <td>
+        <td style="text-align:right;">
           <a class="btn" style="padding:6px 14px;font-size:0.8rem;" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">Link</a>
         </td>
       </tr>
@@ -387,9 +412,9 @@ function renderPostsPage() {
 
     pagBar.innerHTML = `
       <div>
-        Showing <strong>${startIdx + 1}-${endIdx}</strong> of <strong>${total}</strong> posts
+        Showing <strong>${startIdx + 1}-${endIdx}</strong> of <strong>${total}</strong>
         &nbsp;·&nbsp;
-        Per page:
+        Rows:
         <select class="page-size-select" onchange="changePageSize(this.value)">
           ${[10, 15, 25, 50].map(sz => `<option value="${sz}" ${sz === pageSize ? 'selected' : ''}>${sz}</option>`).join("")}
         </select>
@@ -406,7 +431,7 @@ function renderPostsPage() {
 async function triggerScrape() {
   const btn = document.getElementById("scrape-btn");
   btn.disabled = true;
-  btn.textContent = "Scraping Kijiji, Reddit & Craigslist...";
+  btn.textContent = "Scraping...";
   try {
     const resp = await fetch("/api/scrape", {
       method: "POST",

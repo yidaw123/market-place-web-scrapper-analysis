@@ -3,157 +3,202 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Handyman Marketplace — Demand & Lead Intelligence</title>
-  <link rel="stylesheet" href="/static/styles.css?v=4" />
+  <title>Handyman Market Research & Lead Explorer</title>
+  <link rel="stylesheet" href="/static/styles.css?v=7" />
 </head>
 <body>
   <div class="container">
-    <header>
+    <!-- Top Header -->
+    <header class="topbar">
       <div class="brand">
-        <h1>Handyman Market Research & Lead Intelligence</h1>
-        <p>Live Kijiji, Reddit, Craigslist & DIY Forum Scraper · Service Categorization · Ad Targeting</p>
+        <h1>Handyman Market Research</h1>
+        <p>Search and filter service requests across Kijiji, Reddit, Craigslist, and DIY Forums</p>
       </div>
       <div class="actions">
         <button id="scrape-btn" onclick="triggerScrape()">Run Live Scrape</button>
-        <button class="secondary" onclick="triggerReclassify()" title="Re-run classification on stored posts">Reclassify</button>
-        <button class="secondary" onclick="openSettingsModal()">Target Cities & LLM Settings</button>
+        <button class="secondary" onclick="triggerReclassify()">Reclassify</button>
+        <button class="secondary" onclick="openSettingsModal()">Settings</button>
         <a id="export-btn" class="btn secondary" href="/api/export.csv">Export CSV</a>
       </div>
     </header>
 
-    <!-- KPI Cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-label">Total Homeowner Demand Leads</div>
+    <!-- Clickable KPI Strip (Acts as Quick Intent Filters) -->
+    <div class="kpi-strip">
+      <div class="kpi-card active" id="kpi-card-demand_only" onclick="quickSelectIntent('demand_only')">
+        <div class="kpi-label">All Homeowner Demand</div>
         <div class="kpi-val" id="kpi-total-demand" style="color:#60a5fa">0</div>
-        <div class="kpi-sub">Hiring requests + DIY help posts</div>
+        <div class="kpi-sub">Hiring + DIY help</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Direct Hiring Intent</div>
+      <div class="kpi-card" id="kpi-card-customer_hiring" onclick="quickSelectIntent('customer_hiring')">
+        <div class="kpi-label">Direct Hiring</div>
         <div class="kpi-val" id="kpi-hiring" style="color:#34d399">0</div>
-        <div class="kpi-sub">Actively looking to hire a pro now</div>
+        <div class="kpi-sub">Looking to hire a pro</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">DIY Struggle / Conversion Leads</div>
+      <div class="kpi-card" id="kpi-card-diy_help_needed" onclick="quickSelectIntent('diy_help_needed')">
+        <div class="kpi-label">DIY Help</div>
         <div class="kpi-val" id="kpi-diy" style="color:#fbbf24">0</div>
-        <div class="kpi-sub">Asking how to fix / quote checks</div>
+        <div class="kpi-sub">Asking how to fix</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Provider Supply Benchmark</div>
+      <div class="kpi-card" id="kpi-card-service_provider_ad" onclick="quickSelectIntent('service_provider_ad')">
+        <div class="kpi-label">Provider Ads</div>
         <div class="kpi-val" id="kpi-supply" style="color:#c084fc">0</div>
-        <div class="kpi-sub">Local handymen advertising services</div>
+        <div class="kpi-sub">Handymen offering services</div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Job Postings / Recruiting</div>
+      <div class="kpi-card" id="kpi-card-job_posting" onclick="quickSelectIntent('job_posting')">
+        <div class="kpi-label">Job Postings</div>
         <div class="kpi-val" id="kpi-jobs" style="color:#5eead4">0</div>
-        <div class="kpi-sub">Employers & gig apps hiring workers</div>
+        <div class="kpi-sub">Companies hiring workers</div>
       </div>
     </div>
 
-    <!-- Visual Analytics Grid -->
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">
-          <span>Demand vs. Supply by Service Category</span>
-          <span style="font-size:0.75rem;color:var(--muted)">Click any bar to filter leads</span>
-        </div>
-        <div id="category-chart"></div>
+    <!-- View Switcher Tabs -->
+    <div class="nav-row">
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-leads" onclick="switchTab('leads')">Leads Explorer</button>
+        <button class="tab-btn" id="tab-analytics" onclick="switchTab('analytics')">Category & Location Breakdown</button>
       </div>
+      <div id="results-count" style="font-size:0.84rem;color:var(--muted);font-weight:500;">0 matching posts</div>
+    </div>
+
+    <!-- VIEW 1: Leads Explorer (Default) -->
+    <div id="view-leads">
+      <!-- Labeled Filter Panel -->
+      <div class="filter-panel">
+        <div class="filter-grid">
+          <div class="field">
+            <label for="filter-search">Keyword Search</label>
+            <input type="text" id="filter-search" placeholder="Search title or description (e.g. leak, drywall, fence)..." oninput="debouncedLoadPosts()" />
+          </div>
+          <div class="field">
+            <label for="filter-country">Country</label>
+            <select id="filter-country" onchange="onCountryChange()">
+              <option value="all">All Countries</option>
+              <option value="Canada">Canada</option>
+              <option value="United States">United States</option>
+              <option value="National">Online / National Forums</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-province">Province / State</label>
+            <select id="filter-province" onchange="onProvinceChange()">
+              <option value="all">All Provinces / States</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-region">City</label>
+            <select id="filter-region" onchange="onCityChange()">
+              <option value="all">All Cities</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-category">Service Category</label>
+            <select id="filter-category" onchange="loadPosts()">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-grid-secondary">
+          <div class="field">
+            <label for="filter-platform">Platform</label>
+            <select id="filter-platform" onchange="loadPosts()">
+              <option value="all">All Platforms</option>
+              <option value="kijiji">Kijiji (Canada)</option>
+              <option value="reddit">Reddit</option>
+              <option value="craigslist">Craigslist</option>
+              <option value="stackexchange">DIY Stack Exchange</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-intent">Post Type</label>
+            <select id="filter-intent" onchange="onIntentDropdownChange()">
+              <option value="demand_only">Homeowner Demand (Hiring + DIY)</option>
+              <option value="customer_hiring">Direct Hiring Only</option>
+              <option value="diy_help_needed">DIY Help Only</option>
+              <option value="service_provider_ad">Provider Ads</option>
+              <option value="job_posting">Job Postings</option>
+              <option value="all">All Posts</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-urgency">Urgency</label>
+            <select id="filter-urgency" onchange="loadPosts()">
+              <option value="all">Any Urgency</option>
+              <option value="high">High / Urgent</option>
+              <option value="medium">Normal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filter-sort">Sort By</label>
+            <select id="filter-sort" onchange="applySortAndRender()">
+              <option value="relevance">Relevance</option>
+              <option value="date_desc">Newest First</option>
+              <option value="date_asc">Oldest First</option>
+              <option value="urgency">Urgency</option>
+            </select>
+          </div>
+          <div>
+            <button class="secondary" onclick="resetFilters()">Reset Filters</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clean Leads Table -->
       <div class="card">
-        <div class="card-title">
-          <span>Geographic & Forum Hotspots</span>
-          <span style="font-size:0.75rem;color:var(--muted)">Click any region to filter</span>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Post</th>
+                <th style="width:205px;">Category</th>
+                <th style="width:140px;">Type</th>
+                <th style="width:210px;">Location & Source</th>
+                <th style="width:90px;text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="posts-tbody"></tbody>
+          </table>
         </div>
-        <div id="region-chart"></div>
-        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:6px;">Top Converting Subreddits & Craigslist Boards:</div>
-          <div id="top-channels-list"></div>
-        </div>
+        <div class="pagination-bar" id="pagination-bar"></div>
       </div>
     </div>
 
-    <!-- Filter Bar & Leads Table -->
-    <div class="card">
-      <div class="card-title">
-        <span>Categorized Leads & Market Signals</span>
-        <span id="results-count" style="font-size:0.82rem;color:var(--muted)">0 matching posts</span>
+    <!-- VIEW 2: Category & Location Analytics Breakdown -->
+    <div id="view-analytics" class="hidden">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Demand vs. Supply by Service Category</h2>
+            <span style="font-size:0.76rem;color:var(--muted)">Click any row to filter posts</span>
+          </div>
+          <div class="card-body" id="category-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Geographic & Forum Breakdown</h2>
+            <span style="font-size:0.76rem;color:var(--muted)">Click any location to filter posts</span>
+          </div>
+          <div class="card-body">
+            <div id="region-chart"></div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+              <div style="font-size:0.76rem;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Top Sources</div>
+              <div id="top-channels-list"></div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div class="filters">
-        <select id="filter-intent" onchange="loadPosts()">
-          <option value="demand_only">All Homeowner Demand (Hiring + DIY Help)</option>
-          <option value="customer_hiring">Direct Hiring Intent Only</option>
-          <option value="diy_help_needed">DIY Help / Struggling Homeowners Only</option>
-          <option value="service_provider_ad">Service Provider Ads (Supply Recruitment)</option>
-          <option value="job_posting">Job Postings / Recruiting (Labor Market)</option>
-          <option value="irrelevant">Filtered Out as Irrelevant</option>
-          <option value="all">All Posts</option>
-        </select>
-        <select id="filter-platform" onchange="loadPosts()">
-          <option value="all">All Platforms (Kijiji, Reddit, Craigslist, StackExchange)</option>
-          <option value="kijiji">Kijiji (Canada)</option>
-          <option value="reddit">Reddit</option>
-          <option value="craigslist">Craigslist</option>
-          <option value="stackexchange">DIY Stack Exchange</option>
-        </select>
-        <select id="filter-category" onchange="loadPosts()">
-          <option value="all">All Service Categories</option>
-        </select>
-        <select id="filter-country" onchange="onCountryChange()">
-          <option value="all">All Countries & Forums</option>
-          <option value="Canada">Canada</option>
-          <option value="United States">United States</option>
-          <option value="National">National / DIY Forums</option>
-        </select>
-        <select id="filter-province" onchange="onProvinceChange()">
-          <option value="all">All Provinces / States</option>
-        </select>
-        <select id="filter-region" onchange="onCityChange()">
-          <option value="all">All Cities</option>
-        </select>
-        <select id="filter-urgency" onchange="loadPosts()">
-          <option value="all">All Urgency Levels</option>
-          <option value="high">High Urgency / ASAP</option>
-          <option value="medium">Medium Urgency</option>
-        </select>
-        <select id="filter-sort" onchange="applySortAndRender()">
-          <option value="relevance">Sort: Relevance / Intent Score</option>
-          <option value="date_desc">Sort: Date (Newest First)</option>
-          <option value="date_asc">Sort: Date (Oldest First)</option>
-          <option value="urgency">Sort: Urgency (High to Low)</option>
-        </select>
-        <input type="text" id="filter-search" placeholder="Search keywords (e.g. leak, drywall, fence, TV)..." oninput="debouncedLoadPosts()" />
-        <button class="secondary" onclick="resetFilters()">Reset Filters</button>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:135px;">Intent & Score</th>
-              <th style="width:175px;">Service Category</th>
-              <th style="width:185px;">Platform & Location</th>
-              <th>Post Details & Tailored Ad Hook</th>
-              <th style="width:120px;">Author & Date</th>
-              <th style="width:95px;">Link</th>
-            </tr>
-          </thead>
-          <tbody id="posts-tbody"></tbody>
-        </table>
-      </div>
-      <div class="pagination-bar" id="pagination-bar"></div>
     </div>
   </div>
 
   <!-- Settings Modal -->
   <div class="modal-backdrop" id="settings-modal">
     <div class="modal">
-      <div class="card-title">
-        <span>Configure Target Cities, Subreddits & Hybrid LLM</span>
+      <div class="card-header" style="padding:0 0 14px 0;margin-bottom:16px;">
+        <h2>Target Cities, Subreddits & LLM Settings</h2>
         <button class="secondary" onclick="closeSettingsModal()">Close</button>
       </div>
       <div class="form-group">
-        <label>Active Target Metro Regions (Craigslist + Local City Subreddits)</label>
+        <label>Active Target Metro Regions</label>
         <div class="region-toggles" id="settings-regions"></div>
       </div>
       <div class="form-group">
@@ -165,18 +210,18 @@
         <input type="text" id="settings-keywords" />
       </div>
       <div class="form-group">
-        <label>Hybrid Stage-2 LLM Provider (Optional — enriches rule classifications)</label>
+        <label>Optional LLM Provider</label>
         <select id="settings-llm-provider">
           <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
           <option value="openai">OpenAI (gpt-4o-mini)</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Gemini API Key (leave blank to keep existing or use free local rules)</label>
+        <label>Gemini API Key (optional)</label>
         <input type="password" id="settings-gemini-key" placeholder="AIza..." />
       </div>
       <div class="form-group">
-        <label>OpenAI API Key (leave blank to keep existing)</label>
+        <label>OpenAI API Key (optional)</label>
         <input type="password" id="settings-openai-key" placeholder="sk-..." />
       </div>
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
@@ -186,6 +231,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>
