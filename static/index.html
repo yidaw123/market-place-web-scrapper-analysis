@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Handyman Marketplace — Demand & Lead Intelligence</title>
-  <link rel="stylesheet" href="/static/styles.css?v=3" />
+  <link rel="stylesheet" href="/static/styles.css?v=4" />
 </head>
 <body>
   <div class="container">
     <header>
       <div class="brand">
         <h1>Handyman Market Research & Lead Intelligence</h1>
-        <p>Live Reddit & Craigslist Demand Scraper · Service Categorization · Ad Campaign Targeting</p>
+        <p>Live Kijiji, Reddit, Craigslist & DIY Forum Scraper · Service Categorization · Ad Targeting</p>
       </div>
       <div class="actions">
         <button id="scrape-btn" onclick="triggerScrape()">Run Live Scrape</button>
@@ -97,9 +97,11 @@
           <option value="all">All Posts</option>
         </select>
         <select id="filter-platform" onchange="loadPosts()">
-          <option value="all">All Platforms (Reddit + Craigslist)</option>
-          <option value="reddit">Reddit Only</option>
-          <option value="craigslist">Craigslist Only</option>
+          <option value="all">All Platforms (Kijiji, Reddit, Craigslist, StackExchange)</option>
+          <option value="kijiji">Kijiji (Canada)</option>
+          <option value="reddit">Reddit</option>
+          <option value="craigslist">Craigslist</option>
+          <option value="stackexchange">DIY Stack Exchange</option>
         </select>
         <select id="filter-category" onchange="loadPosts()">
           <option value="all">All Service Categories</option>
@@ -184,6 +186,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

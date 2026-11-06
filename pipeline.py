@@ -16,6 +16,8 @@ from scrapers import (
     scrape_craigslist_region,
     scrape_reddit_city_subreddits,
     scrape_reddit_national_subreddits,
+    scrape_kijiji_canada,
+    scrape_diy_stackexchange,
 )
 
 
@@ -26,12 +28,12 @@ def run_scrape_pipeline(
     fetch_cl_details: bool = True,
 ) -> Dict[str, Any]:
     """
-    Executes a concurrent multi-platform scrape across Reddit and Craigslist,
+    Executes a concurrent multi-platform scrape across Reddit, Craigslist, Kijiji, and DIY StackExchange,
     applies the 2-stage Hybrid Intent & Service Categorization Engine,
     and saves leads to SQLite.
     """
     if not platforms:
-        platforms = ["reddit", "craigslist"]
+        platforms = ["reddit", "craigslist", "kijiji", "stackexchange"]
 
     all_regions = get_setting("regions", DEFAULT_REGIONS)
     if region_ids:
@@ -104,6 +106,14 @@ def run_scrape_pipeline(
                     18,
                 )
                 future_map[fut] = "Reddit National DIY/Home Subreddits"
+
+        if "kijiji" in platforms:
+            fut = executor.submit(scrape_kijiji_canada, keywords, 20)
+            future_map[fut] = "Kijiji Canada (Wanted & Services)"
+
+        if "stackexchange" in platforms:
+            fut = executor.submit(scrape_diy_stackexchange, 35)
+            future_map[fut] = "DIY Stack Exchange"
 
         for fut in as_completed(future_map):
             label = future_map[fut]

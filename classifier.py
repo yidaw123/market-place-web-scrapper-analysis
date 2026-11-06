@@ -251,8 +251,11 @@ def classify_post_rules(post: Dict[str, Any]) -> Dict[str, Any]:
 
     # Platform/channel contextual signals
     is_cl_hss = platform == "craigslist" and "/hss" in source_detail
-    is_cl_gig = platform == "craigslist" and ("/lbg" in source_detail or "/dmg" in source_detail or "/cwg" in source_detail)
-    is_diy_sub = source_detail in DIY_SUBS
+    is_cl_gig = (
+        (platform == "craigslist" and ("/lbg" in source_detail or "/dmg" in source_detail or "/cwg" in source_detail))
+        or (platform == "kijiji" and "wanted" in source_detail)
+    )
+    is_diy_sub = source_detail in DIY_SUBS or platform == "stackexchange"
     is_pro_sub = source_detail in PRO_COMMUNITY_SUBS
 
     # Employer recruiting needs a stronger signal on Reddit (homeowners rarely trip these patterns twice)

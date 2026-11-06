@@ -325,7 +325,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "A scrape is already running — please wait for it to finish."}, 409)
                 return
             try:
-                platforms = body.get("platforms", ["reddit", "craigslist"])
+                platforms = body.get("platforms", ["reddit", "craigslist", "kijiji", "stackexchange"])
                 region_ids = body.get("region_ids")
                 include_national = body.get("include_national_reddit", True)
                 result = run_scrape_pipeline(

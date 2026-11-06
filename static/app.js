@@ -299,6 +299,10 @@ function renderPostsPage() {
 
     const platBadge = p.platform === "reddit"
       ? `<span class="badge b-reddit">Reddit</span>`
+      : p.platform === "kijiji"
+      ? `<span class="badge b-kijiji">Kijiji</span>`
+      : p.platform === "stackexchange"
+      ? `<span class="badge b-stackexchange">StackExchange</span>`
       : `<span class="badge b-craigslist">Craigslist</span>`;
 
     const urgBadge = p.urgency === "high"
@@ -378,12 +382,12 @@ function renderPostsPage() {
 async function triggerScrape() {
   const btn = document.getElementById("scrape-btn");
   btn.disabled = true;
-  btn.textContent = "Scraping Reddit & Craigslist...";
+  btn.textContent = "Scraping Kijiji, Reddit & Craigslist...";
   try {
     const resp = await fetch("/api/scrape", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platforms: ["reddit", "craigslist"], include_national_reddit: true }),
+      body: JSON.stringify({ platforms: ["reddit", "craigslist", "kijiji", "stackexchange"], include_national_reddit: true }),
     });
     const res = await resp.json();
     if (!resp.ok) throw new Error(res.error || `HTTP ${resp.status}`);
