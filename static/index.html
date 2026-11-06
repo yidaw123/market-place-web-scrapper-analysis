@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handyman Marketplace — Demand & Lead Intelligence</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>🛠️ Handyman Market Research & Lead Intelligence</h1>
+        <p>Live Reddit & Craigslist Demand Scraper · Service Categorization · Ad Campaign Targeting</p>
+      </div>
+      <div class="actions">
+        <button id="scrape-btn" onclick="triggerScrape()">↻ Run Live Scrape</button>
+        <button class="secondary" onclick="triggerReclassify()" title="Re-run classification on stored posts">⟳ Reclassify</button>
+        <button class="secondary" onclick="openSettingsModal()">⚙️ Target Cities & LLM Settings</button>
+        <a id="export-btn" class="btn secondary" href="/api/export.csv">⬇ Export CSV</a>
+      </div>
+    </header>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Homeowner Demand Leads</div>
+        <div class="kpi-val" id="kpi-total-demand" style="color:#60a5fa">0</div>
+        <div class="kpi-sub">Hiring requests + DIY help posts</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Direct Hiring Intent</div>
+        <div class="kpi-val" id="kpi-hiring" style="color:#34d399">0</div>
+        <div class="kpi-sub">Actively looking to hire a pro now</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">DIY Struggle / Conversion Leads</div>
+        <div class="kpi-val" id="kpi-diy" style="color:#fbbf24">0</div>
+        <div class="kpi-sub">Asking how to fix / quote checks</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Provider Supply Benchmark</div>
+        <div class="kpi-val" id="kpi-supply" style="color:#c084fc">0</div>
+        <div class="kpi-sub">Local handymen advertising services</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Job Postings / Recruiting</div>
+        <div class="kpi-val" id="kpi-jobs" style="color:#5eead4">0</div>
+        <div class="kpi-sub">Employers & gig apps hiring workers</div>
+      </div>
+    </div>
+
+    <!-- Actionable Marketing & Ad Recommendations -->
+    <div class="card-title">
+      <span>🎯 Recommended Marketing Campaigns & Ad Targeting Playbook</span>
+      <span style="font-size:0.78rem;color:var(--muted)">Auto-generated from live demand vs. supply signals</span>
+    </div>
+    <div class="rec-list" id="recommendations-grid"></div>
+
+    <!-- Visual Analytics Grid -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">
+          <span>📊 Demand vs. Supply by Service Category</span>
+          <span style="font-size:0.75rem;color:var(--muted)">Click any bar to filter leads</span>
+        </div>
+        <div id="category-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <span>📍 Geographic & Forum Hotspots</span>
+          <span style="font-size:0.75rem;color:var(--muted)">Click any region to filter</span>
+        </div>
+        <div id="region-chart"></div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:0.78rem;color:var(--muted);margin-bottom:6px;">Top Converting Subreddits & Craigslist Boards:</div>
+          <div id="top-channels-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Bar & Leads Table -->
+    <div class="card">
+      <div class="card-title">
+        <span>📋 Categorized Leads & Market Signals</span>
+        <span id="results-count" style="font-size:0.82rem;color:var(--muted)">0 matching posts</span>
+      </div>
+
+      <div class="filters">
+        <select id="filter-intent" onchange="loadPosts()">
+          <option value="demand_only">All Homeowner Demand (Hiring + DIY Help)</option>
+          <option value="customer_hiring">Direct Hiring Intent Only</option>
+          <option value="diy_help_needed">DIY Help / Struggling Homeowners Only</option>
+          <option value="service_provider_ad">Service Provider Ads (Supply Recruitment)</option>
+          <option value="job_posting">Job Postings / Recruiting (Labor Market)</option>
+          <option value="irrelevant">Filtered Out as Irrelevant</option>
+          <option value="all">All Posts</option>
+        </select>
+        <select id="filter-platform" onchange="loadPosts()">
+          <option value="all">All Platforms (Reddit + Craigslist)</option>
+          <option value="reddit">Reddit Only</option>
+          <option value="craigslist">Craigslist Only</option>
+        </select>
+        <select id="filter-category" onchange="loadPosts()">
+          <option value="all">All Service Categories</option>
+        </select>
+        <select id="filter-region" onchange="loadPosts()">
+          <option value="all">All Locations / Forums</option>
+        </select>
+        <select id="filter-urgency" onchange="loadPosts()">
+          <option value="all">All Urgency Levels</option>
+          <option value="high">High Urgency / ASAP</option>
+          <option value="medium">Medium Urgency</option>
+        </select>
+        <input type="text" id="filter-search" placeholder="Search keywords (e.g. leak, drywall, fence, TV)..." oninput="debouncedLoadPosts()" />
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:140px;">Intent & Score</th>
+              <th style="width:185px;">Service Category</th>
+              <th style="width:175px;">Platform & Location</th>
+              <th>Post Details & Tailored Ad Hook</th>
+              <th style="width:120px;">Author & Date</th>
+            </tr>
+          </thead>
+          <tbody id="posts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="settings-modal">
+    <div class="modal">
+      <div class="card-title">
+        <span>⚙️ Configure Target Cities, Subreddits & Hybrid LLM</span>
+        <button class="secondary" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Active Target Metro Regions (Craigslist + Local City Subreddits)</label>
+        <div class="region-toggles" id="settings-regions"></div>
+      </div>
+      <div class="form-group">
+        <label>National DIY & Home Subreddits (comma-separated)</label>
+        <input type="text" id="settings-subs" />
+      </div>
+      <div class="form-group">
+        <label>Search Keywords (comma-separated)</label>
+        <input type="text" id="settings-keywords" />
+      </div>
+      <div class="form-group">
+        <label>Hybrid Stage-2 LLM Provider (Optional — enriches rule classifications)</label>
+        <select id="settings-llm-provider">
+          <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+          <option value="openai">OpenAI (gpt-4o-mini)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Gemini API Key (leave blank to keep existing or use free local rules)</label>
+        <input type="password" id="settings-gemini-key" placeholder="AIza..." />
+      </div>
+      <div class="form-group">
+        <label>OpenAI API Key (leave blank to keep existing)</label>
+        <input type="password" id="settings-openai-key" placeholder="sk-..." />
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+        <button class="secondary" onclick="closeSettingsModal()">Cancel</button>
+        <button onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
