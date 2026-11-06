@@ -223,7 +223,7 @@ async function loadPosts() {
           <div style="font-size:0.75rem;color:var(--muted);">${esc(locText)}</div>
         </td>
         <td>
-          <a class="post-title" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${esc(p.title)} ↗</a>
+          <a class="post-title" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">${esc(p.title)}</a>
           <div class="post-body">${esc(bodySnippet)}</div>
           <div class="ad-hook"><strong>Ad Hook:</strong> ${esc(p.marketing_angle)}</div>
         </td>
@@ -254,7 +254,7 @@ async function triggerScrape() {
     alert("Error running scrape: " + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "↻ Run Live Scrape";
+    btn.textContent = "Run Live Scrape";
   }
 }
 

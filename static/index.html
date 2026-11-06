@@ -10,14 +10,14 @@
   <div class="container">
     <header>
       <div class="brand">
-        <h1>🛠️ Handyman Market Research & Lead Intelligence</h1>
+        <h1>Handyman Market Research & Lead Intelligence</h1>
         <p>Live Reddit & Craigslist Demand Scraper · Service Categorization · Ad Campaign Targeting</p>
       </div>
       <div class="actions">
-        <button id="scrape-btn" onclick="triggerScrape()">↻ Run Live Scrape</button>
-        <button class="secondary" onclick="triggerReclassify()" title="Re-run classification on stored posts">⟳ Reclassify</button>
-        <button class="secondary" onclick="openSettingsModal()">⚙️ Target Cities & LLM Settings</button>
-        <a id="export-btn" class="btn secondary" href="/api/export.csv">⬇ Export CSV</a>
+        <button id="scrape-btn" onclick="triggerScrape()">Run Live Scrape</button>
+        <button class="secondary" onclick="triggerReclassify()" title="Re-run classification on stored posts">Reclassify</button>
+        <button class="secondary" onclick="openSettingsModal()">Target Cities & LLM Settings</button>
+        <a id="export-btn" class="btn secondary" href="/api/export.csv">Export CSV</a>
       </div>
     </header>
 
@@ -52,7 +52,7 @@
 
     <!-- Actionable Marketing & Ad Recommendations -->
     <div class="card-title">
-      <span>🎯 Recommended Marketing Campaigns & Ad Targeting Playbook</span>
+      <span>Recommended Marketing Campaigns & Ad Targeting Playbook</span>
       <span style="font-size:0.78rem;color:var(--muted)">Auto-generated from live demand vs. supply signals</span>
     </div>
     <div class="rec-list" id="recommendations-grid"></div>
@@ -61,14 +61,14 @@
     <div class="grid-2">
       <div class="card">
         <div class="card-title">
-          <span>📊 Demand vs. Supply by Service Category</span>
+          <span>Demand vs. Supply by Service Category</span>
           <span style="font-size:0.75rem;color:var(--muted)">Click any bar to filter leads</span>
         </div>
         <div id="category-chart"></div>
       </div>
       <div class="card">
         <div class="card-title">
-          <span>📍 Geographic & Forum Hotspots</span>
+          <span>Geographic & Forum Hotspots</span>
           <span style="font-size:0.75rem;color:var(--muted)">Click any region to filter</span>
         </div>
         <div id="region-chart"></div>
@@ -82,7 +82,7 @@
     <!-- Filter Bar & Leads Table -->
     <div class="card">
       <div class="card-title">
-        <span>📋 Categorized Leads & Market Signals</span>
+        <span>Categorized Leads & Market Signals</span>
         <span id="results-count" style="font-size:0.82rem;color:var(--muted)">0 matching posts</span>
       </div>
 
@@ -136,8 +136,8 @@
   <div class="modal-backdrop" id="settings-modal">
     <div class="modal">
       <div class="card-title">
-        <span>⚙️ Configure Target Cities, Subreddits & Hybrid LLM</span>
-        <button class="secondary" onclick="closeSettingsModal()">✕</button>
+        <span>Configure Target Cities, Subreddits & Hybrid LLM</span>
+        <button class="secondary" onclick="closeSettingsModal()">Close</button>
       </div>
       <div class="form-group">
         <label>Active Target Metro Regions (Craigslist + Local City Subreddits)</label>
