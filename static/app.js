@@ -1,5 +1,8 @@
 let currentSettings = null;
 let summaryData = null;
+let allFilteredPosts = [];
+let currentPage = 1;
+let pageSize = 15;
 
 function esc(str) {
   return String(str ?? "")
@@ -245,12 +248,41 @@ async function loadPosts() {
   document.getElementById("export-btn").href = `/api/export.csv?${qs}`;
 
   const res = await fetch(`/api/posts?${qs}`).then(r => r.json());
-  const posts = res.posts || [];
-  document.getElementById("results-count").textContent = `${posts.length} matching posts`;
+  allFilteredPosts = res.posts || [];
+  currentPage = 1;
+  renderPostsPage();
+}
+
+function goToPage(page) {
+  const totalPages = Math.max(1, Math.ceil(allFilteredPosts.length / pageSize));
+  currentPage = Math.max(1, Math.min(totalPages, page));
+  renderPostsPage();
+  document.getElementById("posts-tbody").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function changePageSize(newSize) {
+  pageSize = Number(newSize) || 15;
+  currentPage = 1;
+  renderPostsPage();
+}
+
+function renderPostsPage() {
+  const total = allFilteredPosts.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const posts = allFilteredPosts.slice(startIdx, endIdx);
+
+  document.getElementById("results-count").textContent =
+    total > 0 ? `Showing ${startIdx + 1}-${endIdx} of ${total} matching posts` : "0 matching posts";
 
   const tbody = document.getElementById("posts-tbody");
+  const pagBar = document.getElementById("pagination-bar");
   if (!posts.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px;">No posts match the current filters.</td></tr>`;
+    if (pagBar) pagBar.innerHTML = "";
     return;
   }
 
@@ -308,6 +340,39 @@ async function loadPosts() {
       </tr>
     `;
   }).join("");
+
+  if (pagBar) {
+    const pages = [];
+    const windowStart = Math.max(1, currentPage - 2);
+    const windowEnd = Math.min(totalPages, currentPage + 2);
+    if (windowStart > 1) pages.push(1);
+    if (windowStart > 2) pages.push("...");
+    for (let i = windowStart; i <= windowEnd; i++) pages.push(i);
+    if (windowEnd < totalPages - 1) pages.push("...");
+    if (windowEnd < totalPages) pages.push(totalPages);
+
+    const pageBtnsHtml = pages.map(pg =>
+      pg === "..."
+        ? `<span style="padding:0 4px;">...</span>`
+        : `<button class="page-btn ${pg === currentPage ? 'active' : ''}" onclick="goToPage(${pg})">${pg}</button>`
+    ).join("");
+
+    pagBar.innerHTML = `
+      <div>
+        Showing <strong>${startIdx + 1}-${endIdx}</strong> of <strong>${total}</strong> posts
+        &nbsp;·&nbsp;
+        Per page:
+        <select class="page-size-select" onchange="changePageSize(this.value)">
+          ${[10, 15, 25, 50].map(sz => `<option value="${sz}" ${sz === pageSize ? 'selected' : ''}>${sz}</option>`).join("")}
+        </select>
+      </div>
+      <div class="page-controls">
+        <button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? "disabled" : ""}>Previous</button>
+        ${pageBtnsHtml}
+        <button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? "disabled" : ""}>Next</button>
+      </div>
+    `;
+  }
 }
 
 async function triggerScrape() {

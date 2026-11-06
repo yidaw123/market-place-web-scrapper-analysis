@@ -128,3 +128,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .bar-fill-hiring { background: var(--emerald); height: 100%; }
 .bar-fill-diy { background: var(--amber); height: 100%; }
 .bar-fill-supply { background: var(--purple); height: 100%; }
+.pagination-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px; margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid var(--border); font-size: 0.84rem; color: var(--muted);
+}
+.page-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.page-btn {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;
+}
+.page-btn:hover:not(:disabled) { background: var(--panel-hover); }
+.page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.page-size-select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  padding: 5px 9px; border-radius: 6px; font-size: 0.82rem;
+}
