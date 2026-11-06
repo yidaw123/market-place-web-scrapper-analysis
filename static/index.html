@@ -116,7 +116,14 @@
           <option value="high">High Urgency / ASAP</option>
           <option value="medium">Medium Urgency</option>
         </select>
+        <select id="filter-sort" onchange="applySortAndRender()">
+          <option value="relevance">Sort: Relevance / Intent Score</option>
+          <option value="date_desc">Sort: Date (Newest First)</option>
+          <option value="date_asc">Sort: Date (Oldest First)</option>
+          <option value="urgency">Sort: Urgency (High to Low)</option>
+        </select>
         <input type="text" id="filter-search" placeholder="Search keywords (e.g. leak, drywall, fence, TV)..." oninput="debouncedLoadPosts()" />
+        <button class="secondary" onclick="resetFilters()">Reset Filters</button>
       </div>
 
       <div class="table-wrap">
@@ -179,6 +186,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

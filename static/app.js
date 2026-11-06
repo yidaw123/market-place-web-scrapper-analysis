@@ -229,8 +229,52 @@ async function loadPosts() {
 
   const res = await fetch(`/api/posts?${qs}`).then(r => r.json());
   allFilteredPosts = res.posts || [];
+  applySortAndRender();
+}
+
+function applySortAndRender() {
+  const sortEl = document.getElementById("filter-sort");
+  const sortBy = sortEl ? sortEl.value : "relevance";
+  const urgRank = { high: 3, medium: 2, low: 1 };
+  const intentRank = { customer_hiring: 3, diy_help_needed: 2, job_posting: 1, service_provider_ad: 1, irrelevant: 0 };
+
+  allFilteredPosts.sort((a, b) => {
+    if (sortBy === "date_desc") {
+      return String(b.posted_at || "").localeCompare(String(a.posted_at || ""));
+    }
+    if (sortBy === "date_asc") {
+      return String(a.posted_at || "").localeCompare(String(b.posted_at || ""));
+    }
+    if (sortBy === "urgency") {
+      const uDiff = (urgRank[b.urgency] || 0) - (urgRank[a.urgency] || 0);
+      if (uDiff !== 0) return uDiff;
+      return (b.intent_score || 0) - (a.intent_score || 0);
+    }
+    // Default: relevance (hiring first, then intent score, then newest date)
+    const iDiff = (intentRank[b.intent_type] || 0) - (intentRank[a.intent_type] || 0);
+    if (iDiff !== 0) return iDiff;
+    const sDiff = (b.intent_score || 0) - (a.intent_score || 0);
+    if (sDiff !== 0) return sDiff;
+    return String(b.posted_at || "").localeCompare(String(a.posted_at || ""));
+  });
+
   currentPage = 1;
   renderPostsPage();
+}
+
+async function resetFilters() {
+  document.getElementById("filter-intent").value = "demand_only";
+  document.getElementById("filter-platform").value = "all";
+  document.getElementById("filter-category").value = "all";
+  document.getElementById("filter-country").value = "all";
+  document.getElementById("filter-province").value = "all";
+  document.getElementById("filter-region").value = "all";
+  document.getElementById("filter-urgency").value = "all";
+  document.getElementById("filter-sort").value = "relevance";
+  document.getElementById("filter-search").value = "";
+  updateProvinceAndCityOptions();
+  await refreshSummaryForGeo();
+  await loadPosts();
 }
 
 function goToPage(page) {
