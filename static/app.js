@@ -32,7 +32,6 @@ async function refreshSummaryForGeo() {
   const sumRes = await fetch(`/api/summary?${qs}`).then(r => r.json());
   summaryData = sumRes;
   renderKPIs(sumRes.kpis);
-  renderRecommendations(sumRes.recommendations || []);
   renderCategoryBars(sumRes.category_breakdown || []);
   renderRegionBars(sumRes.region_breakdown || [], sumRes.top_channels || []);
 }
@@ -56,25 +55,6 @@ function renderKPIs(kpis) {
   document.getElementById("kpi-diy").textContent = kpis.diy_conversion_leads || 0;
   document.getElementById("kpi-supply").textContent = kpis.competitor_supply_ads || 0;
   document.getElementById("kpi-jobs").textContent = kpis.job_postings || 0;
-}
-
-function renderRecommendations(recs) {
-  const el = document.getElementById("recommendations-grid");
-  if (!recs.length) {
-    el.innerHTML = `<div class="card">Run a scrape to generate marketing & ad targeting insights.</div>`;
-    return;
-  }
-  el.innerHTML = recs.map(r => `
-    <div class="rec-card">
-      <div class="rec-header">
-        <span>${esc(r.type)}</span>
-        <span class="badge b-hiring">${esc(r.badge)}</span>
-      </div>
-      <div class="rec-title">${esc(r.title)}</div>
-      <div class="rec-metrics">${esc(r.metrics)}</div>
-      <div class="rec-action">${esc(r.action)}</div>
-    </div>
-  `).join("");
 }
 
 function renderCategoryBars(cats) {
