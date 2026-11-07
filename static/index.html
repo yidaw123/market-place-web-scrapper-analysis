@@ -51,16 +51,31 @@
       </div>
     </div>
 
-    <!-- View Switcher Tabs -->
-    <div class="nav-row">
-      <div class="tabs">
-        <button class="tab-btn active" id="tab-leads" onclick="switchTab('leads')">Leads Explorer</button>
-        <button class="tab-btn" id="tab-analytics" onclick="switchTab('analytics')">Category & Location Breakdown</button>
+    <!-- Category & Location Analytics Breakdown -->
+    <div class="grid-2" style="margin-bottom: 18px;">
+      <div class="card">
+        <div class="card-header">
+          <h2>Demand vs. Supply by Service Category</h2>
+          <span style="font-size:0.76rem;color:var(--muted)">Click any row to filter posts</span>
+        </div>
+        <div class="card-body" id="category-chart"></div>
       </div>
-      <div id="results-count" style="font-size:0.84rem;color:var(--muted);font-weight:500;">0 matching posts</div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Geographic & Forum Breakdown</h2>
+          <span style="font-size:0.76rem;color:var(--muted)">Click any location to filter posts</span>
+        </div>
+        <div class="card-body">
+          <div id="region-chart"></div>
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:0.76rem;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Top Sources</div>
+            <div id="top-channels-list"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- VIEW 1: Leads Explorer (Default) -->
+    <!-- Leads Explorer -->
     <div id="view-leads">
       <!-- Labeled Filter Panel -->
       <div class="filter-panel">
@@ -145,6 +160,10 @@
 
       <!-- Clean Leads Table -->
       <div class="card">
+        <div class="card-header">
+          <h2>Categorized Leads & Market Signals</h2>
+          <div id="results-count" style="font-size:0.82rem;color:var(--muted);font-weight:500;">0 matching posts</div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -160,32 +179,6 @@
           </table>
         </div>
         <div class="pagination-bar" id="pagination-bar"></div>
-      </div>
-    </div>
-
-    <!-- VIEW 2: Category & Location Analytics Breakdown -->
-    <div id="view-analytics" class="hidden">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <h2>Demand vs. Supply by Service Category</h2>
-            <span style="font-size:0.76rem;color:var(--muted)">Click any row to filter posts</span>
-          </div>
-          <div class="card-body" id="category-chart"></div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <h2>Geographic & Forum Breakdown</h2>
-            <span style="font-size:0.76rem;color:var(--muted)">Click any location to filter posts</span>
-          </div>
-          <div class="card-body">
-            <div id="region-chart"></div>
-            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-              <div style="font-size:0.76rem;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;">Top Sources</div>
-              <div id="top-channels-list"></div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -231,6 +224,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=7"></script>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

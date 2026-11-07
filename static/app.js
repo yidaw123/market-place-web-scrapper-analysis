@@ -24,11 +24,8 @@ function debouncedLoadPosts() {
 }
 
 function switchTab(tabName) {
-  const isLeads = tabName === "leads";
-  document.getElementById("view-leads").classList.toggle("hidden", !isLeads);
-  document.getElementById("view-analytics").classList.toggle("hidden", isLeads);
-  document.getElementById("tab-leads").classList.toggle("active", isLeads);
-  document.getElementById("tab-analytics").classList.toggle("active", !isLeads);
+  const leadsEl = document.getElementById("view-leads");
+  if (leadsEl) leadsEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function syncActiveKpiCard(intentVal) {
