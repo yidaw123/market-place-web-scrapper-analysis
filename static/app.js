@@ -2,16 +2,6 @@ let currentSettings = null;
 let summaryData = null;
 let trendData = null;
 let currentTrendPeriod = "1Y";
-let activeWorkTypes = new Set([
-  "Plumbing & Drain",
-  "Carpentry, Doors & Windows",
-  "Electrical & Lighting",
-  "Yardwork & Landscaping",
-]);
-let allFilteredPosts = [];
-let currentPage = 1;
-let pageSize = 15;
-
 const WORK_TYPE_COLORS = {
   "All Demand": "#60a5fa",
   "Plumbing & Drain": "#38bdf8",
@@ -25,6 +15,11 @@ const WORK_TYPE_COLORS = {
   "Appliance & HVAC Repair": "#fb7185",
   "General Handyman & Odd Jobs": "#94a3b8",
 };
+
+let activeWorkTypes = new Set(Object.keys(WORK_TYPE_COLORS));
+let allFilteredPosts = [];
+let currentPage = 1;
+let pageSize = 15;
 
 function esc(str) {
   return String(str ?? "")
@@ -60,6 +55,9 @@ function syncActiveKpiCard(intentVal) {
 
 function quickSelectIntent(intentVal) {
   document.getElementById("filter-intent").value = intentVal;
+  if (intentVal === "demand_only") {
+    document.getElementById("filter-category").value = "all";
+  }
   syncActiveKpiCard(intentVal);
   switchTab("leads");
   loadPosts();
@@ -284,13 +282,34 @@ function setTrendPeriod(period) {
   loadTrends();
 }
 
+function getAllWorkCategories() {
+  return (trendData && trendData.categories && trendData.categories.length)
+    ? trendData.categories
+    : Object.keys(WORK_TYPE_COLORS).filter(k => k !== "All Demand");
+}
+
 function toggleWorkTypePill(workType) {
-  if (activeWorkTypes.has(workType)) {
-    if (activeWorkTypes.size > 1) {
-      activeWorkTypes.delete(workType);
+  const allCats = getAllWorkCategories();
+  if (workType === "All Demand") {
+    const allSelected = allCats.every(c => activeWorkTypes.has(c));
+    if (allSelected) {
+      // Turn OFF everything
+      activeWorkTypes.clear();
+    } else {
+      // Turn ON all job types
+      activeWorkTypes.add("All Demand");
+      allCats.forEach(c => activeWorkTypes.add(c));
     }
   } else {
-    activeWorkTypes.add(workType);
+    if (activeWorkTypes.has(workType)) {
+      activeWorkTypes.delete(workType);
+      activeWorkTypes.delete("All Demand");
+    } else {
+      activeWorkTypes.add(workType);
+      if (allCats.every(c => activeWorkTypes.has(c))) {
+        activeWorkTypes.add("All Demand");
+      }
+    }
   }
   renderTrendPills();
   renderTrendChart();
@@ -298,8 +317,14 @@ function toggleWorkTypePill(workType) {
 
 function soloWorkType(workType, evt) {
   if (evt) evt.stopPropagation();
+  const allCats = getAllWorkCategories();
   activeWorkTypes.clear();
-  activeWorkTypes.add(workType);
+  if (workType === "All Demand") {
+    activeWorkTypes.add("All Demand");
+    allCats.forEach(c => activeWorkTypes.add(c));
+  } else {
+    activeWorkTypes.add(workType);
+  }
   renderTrendPills();
   renderTrendChart();
 }
@@ -308,16 +333,21 @@ function renderTrendPills() {
   const container = document.getElementById("trend-work-pills");
   if (!container || !trendData) return;
   const totals = trendData.totals || {};
-  const keys = ["All Demand", ...(trendData.categories || [])];
+  const allCats = getAllWorkCategories();
+  const allSelected = allCats.every(c => activeWorkTypes.has(c));
+  const keys = ["All Demand", ...allCats];
 
   container.innerHTML = keys.map(k => {
-    const isActive = activeWorkTypes.has(k);
+    const isActive = k === "All Demand" ? allSelected : activeWorkTypes.has(k);
     const color = WORK_TYPE_COLORS[k] || "#60a5fa";
     const count = totals[k] || 0;
     const borderStyle = isActive ? `border-color:${color};box-shadow:0 0 0 1px ${color}40;` : "";
+    const tip = k === "All Demand"
+      ? "Click to toggle ALL job types on or off"
+      : "Click to toggle this job type on/off (double-click to solo)";
     return `
-      <div class="work-pill ${isActive ? 'active' : ''}" style="${borderStyle}" data-wt="${esc(k)}" onclick="toggleWorkTypePill(this.dataset.wt)" ondblclick="soloWorkType(this.dataset.wt, event)" title="Click to toggle on chart (double-click to solo)">
-        <span class="work-pill-dot" style="background:${color};opacity:${isActive ? 1 : 0.45}"></span>
+      <div class="work-pill ${isActive ? 'active' : ''}" style="${borderStyle}" data-wt="${esc(k)}" onclick="toggleWorkTypePill(this.dataset.wt)" ondblclick="soloWorkType(this.dataset.wt, event)" title="${tip}">
+        <span class="work-pill-dot" style="background:${color};opacity:${isActive ? 1 : 0.35}"></span>
         <span>${esc(k)}</span>
         <span class="work-pill-count">${count}</span>
       </div>
@@ -332,10 +362,13 @@ function renderTrendChart() {
 
   const buckets = trendData.buckets || [];
   const series = trendData.series || {};
-  const activeKeys = [...activeWorkTypes].filter(k => Array.isArray(series[k]));
+  const activeKeys = [...activeWorkTypes].filter(k => k !== "All Demand" && Array.isArray(series[k]));
 
   if (!buckets.length || !activeKeys.length) {
-    svgWrap.innerHTML = `<div style="color:var(--muted);padding:40px;text-align:center;">Select at least one work type above to view demand trend.</div>`;
+    if (statsEl) {
+      statsEl.innerHTML = `<span style="color:var(--muted);">All job types toggled off &mdash; click <strong>All Demand</strong> to turn all on, or click individual job types to compare</span>`;
+    }
+    svgWrap.innerHTML = `<div style="color:var(--muted);padding:64px 20px;text-align:center;border:1px dashed var(--border);border-radius:8px;">All job types are currently toggled off. Click <strong>All Demand</strong> to select all, or click any specific job type pill above to plot its demand trend.</div>`;
     return;
   }
 
@@ -475,13 +508,14 @@ function onTrendChartHover(evt) {
     cross.style.display = "block";
   }
 
-  const activeKeys = [...activeWorkTypes].filter(k => Array.isArray(trendData.series[k]));
+  const activeKeys = [...activeWorkTypes].filter(k => k !== "All Demand" && Array.isArray(trendData.series[k]));
   const rows = activeKeys
     .map(k => ({ key: k, val: (trendData.series[k] || [])[idx] || 0, color: WORK_TYPE_COLORS[k] || "#60a5fa" }))
     .sort((a, b) => b.val - a.val);
+  const bucketTotal = rows.reduce((s, r) => s + r.val, 0);
 
   tooltip.innerHTML = `
-    <div class="trend-tooltip-title">${esc(bucket.label)}</div>
+    <div class="trend-tooltip-title">${esc(bucket.label)} &middot; ${bucketTotal} total</div>
     ${rows.map(r => `
       <div class="trend-tooltip-row">
         <span style="display:inline-flex;align-items:center;gap:6px;">
