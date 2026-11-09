@@ -11,6 +11,7 @@ from database import (
     init_db,
     query_posts,
     get_analytics_summary,
+    get_demand_trends,
     get_setting,
     set_setting,
     upsert_post,
@@ -202,6 +203,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             summary["recommendations"] = build_marketing_recommendations(summary)
             summary["categories_list"] = list(SERVICE_CATEGORIES.keys())
             self._send_json(summary)
+            return
+
+        if path == "/api/trends":
+            trends = get_demand_trends(
+                period=qs.get("period", ["1Y"])[0],
+                country=qs.get("country", ["all"])[0],
+                province=qs.get("province", ["all"])[0],
+                city_region=qs.get("city_region", ["all"])[0],
+                categories_list=list(SERVICE_CATEGORIES.keys()),
+            )
+            self._send_json(trends)
             return
 
         if path == "/api/posts":

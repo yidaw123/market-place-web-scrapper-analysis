@@ -7,11 +7,14 @@ from typing import Dict, Any, List, Tuple
 SERVICE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     "Plumbing & Drain": {
         "keywords": [
-            ("plumber", 5), ("plumbing", 5), ("leak", 4), ("leaking", 4),
+            ("plumber", 5), ("plumbing", 5), ("leak", 4), ("leaking", 4), ("leaky", 4),
             ("faucet", 4), ("toilet", 4), ("clog", 4), ("clogged", 4),
             ("drain", 4), ("pipe", 3), ("water heater", 5), ("shower valve", 5),
+            ("shower head", 4), ("showerhead", 4), ("shower", 3), ("bathtub", 3), ("tub", 3),
             ("garbage disposal", 5), ("sink", 3), ("sewer", 4), ("bidet", 4),
-            ("sump pump", 5), ("hose bib", 4), ("water pressure", 4),
+            ("sump pump", 5), ("hose bib", 4), ("spigot", 4), ("water pressure", 4),
+            ("shutoff valve", 4), ("valve", 3), ("septic", 4), ("water line", 4),
+            ("p-trap", 4), ("ptrap", 4), ("plunger", 3), ("snake drain", 4),
         ],
         "default_difficulty": "pro_required",
         "ad_hook": "Leaking pipe or stubborn clog? Book a vetted local plumber with upfront pricing—no surprise trip fees.",
@@ -19,56 +22,71 @@ SERVICE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     "Electrical & Lighting": {
         "keywords": [
             ("electrician", 5), ("electrical", 5), ("outlet", 4), ("breaker", 4),
-            ("wiring", 4), ("light fixture", 5), ("ceiling fan", 5), ("chandelier", 4),
-            ("dimmer", 4), ("switch", 3), ("gfci", 5), ("panel", 3),
-            ("recessed light", 5), ("ev charger", 5), ("thermostat wire", 4),
-            ("sparking", 4), ("floodlight", 4), ("sconce", 4),
+            ("wiring", 4), ("wire", 3), ("rewire", 5), ("light fixture", 5), ("lighting", 4),
+            ("ceiling fan", 5), ("chandelier", 4), ("dimmer", 4), ("switch", 3), ("light switch", 5),
+            ("gfci", 5), ("panel", 3), ("subpanel", 5), ("recessed light", 5), ("pot light", 5),
+            ("ev charger", 5), ("thermostat wire", 4), ("sparking", 4), ("floodlight", 4),
+            ("sconce", 4), ("ethernet", 4), ("doorbell", 4), ("smoke detector", 4),
+            ("voltage", 4), ("circuit", 4), ("conduit", 4),
         ],
         "default_difficulty": "pro_required",
         "ad_hook": "Don't risk DIY shocks. Hire a background-checked electrical & lighting pro in minutes.",
     },
-    "Gardening & Landscaping": {
+    "Yardwork & Landscaping": {
         "keywords": [
-            ("garden", 4), ("gardening", 5), ("landscaping", 5), ("landscaper", 5),
-            ("yard work", 5), ("yard", 3), ("lawn", 4), ("mowing", 4),
-            ("weeding", 5), ("weeds", 4), ("mulch", 4), ("pruning", 4),
-            ("tree trimming", 5), ("hedge", 4), ("sprinkler", 4), ("irrigation", 5),
-            ("sod", 4), ("patio", 3), ("overgrown", 4), ("leaf removal", 5),
-            ("brush clearing", 5), ("digging", 3),
+            ("yardwork", 5), ("yard work", 5), ("yard cleanup", 5), ("yard", 3),
+            ("garden", 4), ("gardening", 5), ("gardener", 5), ("landscaping", 5), ("landscaper", 5),
+            ("lawn", 4), ("mowing", 4), ("mower", 4), ("weeding", 5), ("weeds", 4),
+            ("mulch", 4), ("pruning", 4), ("tree trimming", 5), ("tree removal", 5),
+            ("stump", 4), ("branches", 3), ("hedge", 4), ("sprinkler", 4), ("irrigation", 5),
+            ("sod", 4), ("patio", 3), ("paver", 4), ("retaining wall", 4), ("overgrown", 4),
+            ("leaf removal", 5), ("leaves", 3), ("brush clearing", 5), ("digging", 3),
+            ("snow removal", 5), ("shoveling", 4), ("grading", 3), ("drainage", 3),
+            ("soil", 3), ("compost", 3),
         ],
         "default_difficulty": "easy",
-        "ad_hook": "Weekend too short for yard work? Book local gardening & landscaping help on-demand.",
+        "ad_hook": "Weekend too short for yardwork? Book local yardwork, gardening & landscaping help on-demand.",
     },
     "Painting & Drywall": {
         "keywords": [
             ("drywall", 5), ("sheetrock", 5), ("spackle", 4), ("plaster", 4),
-            ("patch hole", 5), ("wall repair", 5), ("painter", 5), ("painting", 4),
+            ("patch hole", 5), ("patching", 4), ("wall repair", 5), ("painter", 5), ("painting", 4),
             ("repaint", 4), ("touch up paint", 5), ("popcorn ceiling", 5), ("paint", 3),
-            ("wallpaper", 4), ("staining", 3), ("baseboard paint", 4),
-            ("ceiling crack", 4), ("mudding", 4), ("texture", 3),
+            ("primer", 3), ("wallpaper", 4), ("staining", 3), ("stain", 3),
+            ("baseboard paint", 4), ("ceiling crack", 4), ("ceiling repair", 4),
+            ("mudding", 4), ("joint compound", 4), ("skim coat", 5), ("texture", 3),
         ],
         "default_difficulty": "moderate",
         "ad_hook": "Seamless drywall patching & interior painting—get matched with a top-rated finisher today.",
     },
     "Carpentry, Doors & Windows": {
         "keywords": [
-            ("carpenter", 5), ("carpentry", 5), ("wood", 2), ("rot", 3),
-            ("door", 3), ("window", 3), ("trim", 4), ("baseboard", 4),
-            ("crown molding", 5), ("cabinet", 4), ("hinge", 4), ("weatherstripping", 4),
-            ("deck repair", 5), ("deck", 3), ("fence", 4), ("gate", 3),
-            ("framing", 4), ("shelving", 4), ("subfloor", 4), ("caulk", 3),
-            ("sliding door", 4), ("screen door", 4),
+            ("carpenter", 5), ("carpentry", 5), ("woodworking", 5), ("wood", 2),
+            ("rot", 3), ("rotten", 3), ("door", 3), ("doorknob", 4), ("deadbolt", 4),
+            ("lockset", 4), ("lock", 3), ("latch", 3), ("window", 3), ("windowpane", 4),
+            ("sill", 3), ("trim", 4), ("molding", 4), ("moulding", 4), ("baseboard", 4),
+            ("crown molding", 5), ("cabinet", 4), ("cabinetry", 4), ("drawer", 3),
+            ("hinge", 4), ("weatherstripping", 4), ("deck repair", 5), ("deck", 3),
+            ("porch", 3), ("railing", 4), ("handrail", 4), ("stairs", 3), ("stair", 3),
+            ("fence", 4), ("fencing", 5), ("gate", 3), ("framing", 4), ("stud", 3),
+            ("joist", 4), ("beam", 3), ("subfloor", 4), ("caulk", 3), ("caulking", 4),
+            ("sliding door", 4), ("screen door", 4), ("pocket door", 4), ("closet door", 4),
+            ("pergola", 4), ("shed", 3),
         ],
         "default_difficulty": "moderate",
         "ad_hook": "Sticking doors, rotten trim, or fence damage? Hire a skilled local carpenter by the job.",
     },
     "Mounting & Furniture Assembly": {
         "keywords": [
-            ("mount tv", 6), ("tv mounting", 6), ("hang tv", 6), ("ikea", 5),
-            ("furniture assembly", 6), ("assemble", 4), ("assembly", 4),
-            ("hang mirror", 5), ("hang art", 5), ("curtain rod", 5), ("blinds", 4),
-            ("wall mount", 5), ("bookshelf", 4), ("studs", 3), ("anchor", 3),
-            ("gazebo assembly", 5), ("shed assembly", 5), ("trampoline", 4),
+            ("mount tv", 6), ("tv mounting", 6), ("tv mount", 6), ("hang tv", 6),
+            ("ikea", 5), ("wayfair", 4), ("furniture assembly", 6), ("furniture", 3),
+            ("assemble", 4), ("assembly", 4), ("hang mirror", 5), ("hang picture", 5),
+            ("hang art", 5), ("hang shelves", 5), ("shelving", 4), ("shelf", 3), ("shelves", 3),
+            ("curtain rod", 5), ("curtain", 3), ("blinds", 4), ("shades", 3),
+            ("wall mount", 5), ("mounted", 3), ("mounting", 4), ("bookshelf", 4),
+            ("dresser", 3), ("bed frame", 4), ("desk assembly", 5), ("anchor", 3),
+            ("toggle bolt", 4), ("gazebo assembly", 5), ("shed assembly", 5),
+            ("trampoline", 4), ("playset", 4),
         ],
         "default_difficulty": "easy",
         "ad_hook": "Skip the 40-page manual & crooked brackets. Same-day TV mounting & furniture assembly pros.",
@@ -76,29 +94,37 @@ SERVICE_CATEGORIES: Dict[str, Dict[str, Any]] = {
     "Roofing, Siding & Gutters": {
         "keywords": [
             ("roof", 4), ("roofer", 5), ("roofing", 5), ("shingle", 5),
-            ("gutter", 5), ("gutters", 5), ("downspout", 5), ("siding", 5),
-            ("fascia", 5), ("soffit", 5), ("flashing", 5), ("roof vent", 5),
-            ("chimney", 4), ("power wash", 4), ("pressure wash", 4), ("moss", 3),
+            ("gutter", 5), ("gutters", 5), ("eavestrough", 5), ("downspout", 5),
+            ("siding", 5), ("vinyl siding", 5), ("stucco", 4), ("brick", 3),
+            ("masonry", 4), ("mortar", 4), ("tuckpointing", 5), ("fascia", 5),
+            ("soffit", 5), ("flashing", 5), ("roof vent", 5), ("skylight", 4),
+            ("chimney", 4), ("power wash", 4), ("pressure wash", 4), ("moss", 3), ("attic", 3),
         ],
         "default_difficulty": "pro_required",
         "ad_hook": "Stay off the ladder! Book insured exterior, gutter & roof repair specialists near you.",
     },
     "Flooring & Tile": {
         "keywords": [
-            ("tile", 4), ("tiling", 5), ("grout", 5), ("regrout", 5),
-            ("backsplash", 5), ("flooring", 5), ("hardwood", 4), ("laminate", 4),
-            ("lvp", 5), ("vinyl plank", 5), ("carpet", 3), ("marble", 3),
-            ("mosaic", 4), ("cracked tile", 5), ("caulking tub", 5),
+            ("tile", 4), ("tiling", 5), ("tiler", 5), ("grout", 5), ("regrout", 5),
+            ("backsplash", 5), ("flooring", 5), ("floor", 3), ("hardwood", 4),
+            ("laminate", 4), ("lvp", 5), ("vinyl plank", 5), ("linoleum", 4),
+            ("carpet", 3), ("rug", 2), ("marble", 3), ("granite", 3), ("quartz", 3),
+            ("countertop", 4), ("mosaic", 4), ("cracked tile", 5), ("caulking tub", 5),
+            ("shower tile", 5), ("transition strip", 4),
         ],
         "default_difficulty": "moderate",
         "ad_hook": "Cracked tile or worn grout? Connect with precision tile & flooring pros with verified portfolios.",
     },
     "Appliance & HVAC Repair": {
         "keywords": [
-            ("appliance", 5), ("washer", 4), ("dryer", 4), ("dishwasher", 5),
-            ("fridge", 4), ("refrigerator", 4), ("oven", 4), ("stove", 4),
-            ("hvac", 5), ("furnace", 5), ("ac unit", 5), ("air conditioner", 5),
-            ("mini split", 5), ("dryer vent", 5), ("water filter", 3),
+            ("appliance", 5), ("washer", 4), ("washing machine", 5), ("dryer", 4),
+            ("dishwasher", 5), ("fridge", 4), ("refrigerator", 4), ("freezer", 4),
+            ("ice maker", 4), ("oven", 4), ("stove", 4), ("cooktop", 4),
+            ("range hood", 4), ("microwave", 4), ("hvac", 5), ("furnace", 5),
+            ("boiler", 4), ("heater", 3), ("heating", 3), ("ac unit", 5),
+            ("air conditioner", 5), ("air conditioning", 5), ("heat pump", 5),
+            ("mini split", 5), ("thermostat", 4), ("ductwork", 4), ("duct", 3),
+            ("vent", 3), ("dryer vent", 5), ("water filter", 3),
         ],
         "default_difficulty": "pro_required",
         "ad_hook": "Broken appliance or AC acting up? Fast diagnostics & repair from local technicians.",
@@ -108,7 +134,9 @@ SERVICE_CATEGORIES: Dict[str, Dict[str, Any]] = {
             ("handyman", 5), ("handy man", 5), ("odd jobs", 5), ("punch list", 5),
             ("honey do", 5), ("home repair", 4), ("maintenance", 3),
             ("short-term rental", 4), ("airbnb", 4), ("move out repair", 5),
-            ("property maintenance", 4), ("fix", 1), ("repair", 1),
+            ("property maintenance", 4), ("junk removal", 4), ("hauling", 4),
+            ("moving help", 4), ("heavy lifting", 4), ("demolition", 4),
+            ("fix", 1), ("repair", 1),
         ],
         "default_difficulty": "moderate",
         "ad_hook": "Got a punch list of home repairs? Book one versatile, vetted handyman to knock it all out.",
@@ -229,7 +257,11 @@ def classify_post_rules(post: Dict[str, Any]) -> Dict[str, Any]:
             cat_scores.append((cat_name, score))
 
     cat_scores.sort(key=lambda x: x[1], reverse=True)
-    if cat_scores:
+    specific_scores = [(c, s) for c, s in cat_scores if c != "General Handyman & Odd Jobs" and s >= 3]
+    if specific_scores:
+        primary_category = specific_scores[0][0]
+        secondary_categories = [c[0] for c in cat_scores if c[0] != primary_category and c[1] >= 4][:2]
+    elif cat_scores:
         primary_category = cat_scores[0][0]
         secondary_categories = [c[0] for c in cat_scores[1:3] if c[1] >= 4]
     else:

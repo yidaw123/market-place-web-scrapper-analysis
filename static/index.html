@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Handyman Market Research & Lead Explorer</title>
-  <link rel="stylesheet" href="/static/styles.css?v=7" />
+  <link rel="stylesheet" href="/static/styles.css?v=9" />
 </head>
 <body>
   <div class="container">
@@ -51,11 +51,39 @@
       </div>
     </div>
 
+    <!-- Stock-Market Style Demand Trend & Seasonality Chart -->
+    <div class="card" style="margin-bottom: 18px;">
+      <div class="trend-header">
+        <div class="trend-title-block">
+          <h2>Homeowner Demand Trend &amp; Seasonality by Type of Work</h2>
+          <p id="trend-subtitle">Toggle work types below to compare demand trends across time periods or seasonal monthly cycles</p>
+        </div>
+        <div class="period-tabs" id="trend-period-tabs">
+          <button class="period-btn" data-period="7D" onclick="setTrendPeriod('7D')">7D</button>
+          <button class="period-btn" data-period="1M" onclick="setTrendPeriod('1M')">1M</button>
+          <button class="period-btn" data-period="3M" onclick="setTrendPeriod('3M')">3M</button>
+          <button class="period-btn" data-period="6M" onclick="setTrendPeriod('6M')">6M</button>
+          <button class="period-btn active" data-period="1Y" onclick="setTrendPeriod('1Y')">1Y</button>
+          <button class="period-btn" data-period="ALL" onclick="setTrendPeriod('ALL')">ALL</button>
+          <button class="period-btn" data-period="SEASONALITY" onclick="setTrendPeriod('SEASONALITY')">Seasonality (Jan-Dec)</button>
+        </div>
+      </div>
+      <div class="work-type-pills" id="trend-work-pills"></div>
+      <div class="trend-chart-wrap" id="trend-chart-wrap">
+        <div class="trend-summary-strip">
+          <div id="trend-stats-summary"></div>
+          <div style="font-size:0.75rem;color:var(--muted);">Click any work type pill to toggle it on/off &middot; Hover chart to inspect exact counts</div>
+        </div>
+        <div id="trend-svg-container" style="width:100%;height:260px;"></div>
+        <div class="trend-tooltip" id="trend-tooltip"></div>
+      </div>
+    </div>
+
     <!-- Category & Location Analytics Breakdown -->
     <div class="grid-2" style="margin-bottom: 18px;">
       <div class="card">
         <div class="card-header">
-          <h2>Demand vs. Supply by Service Category</h2>
+          <h2>Demand vs. Supply by Type of Work</h2>
           <span style="font-size:0.76rem;color:var(--muted)">Click any row to filter posts</span>
         </div>
         <div class="card-body" id="category-chart"></div>
@@ -106,9 +134,9 @@
             </select>
           </div>
           <div class="field">
-            <label for="filter-category">Service Category</label>
-            <select id="filter-category" onchange="loadPosts()">
-              <option value="all">All Categories</option>
+            <label for="filter-category">Type of Work</label>
+            <select id="filter-category" onchange="onCategoryDropdownChange()">
+              <option value="all">All Types of Work</option>
             </select>
           </div>
         </div>
@@ -224,6 +252,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>

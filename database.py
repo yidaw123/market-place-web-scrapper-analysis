@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_research.db")
@@ -397,6 +397,9 @@ def init_db() -> None:
     cur.execute(
         "UPDATE posts SET body = '' WHERE platform = 'craigslist' AND body LIKE 'Craigslist % listing in %matched query:%'"
     )
+    cur.execute(
+        "UPDATE posts SET primary_category = 'Yardwork & Landscaping' WHERE primary_category = 'Gardening & Landscaping'"
+    )
 
     conn.commit()
     conn.close()
@@ -778,4 +781,157 @@ def get_analytics_summary(
         "platform_breakdown": platform_breakdown,
         "top_channels": top_channels,
         "recent_runs": recent_runs,
+    }
+
+
+def get_demand_trends(
+    period: str = "1Y",
+    country: Optional[str] = None,
+    province: Optional[str] = None,
+    city_region: Optional[str] = None,
+    categories_list: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Returns stock-market style time-series and seasonality demand data broken down
+    by work category (customer_hiring + diy_help_needed).
+    Supported periods: '7D', '1M', '3M', '6M', '1Y', 'ALL', 'SEASONALITY'
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    clauses = ["intent_type IN ('customer_hiring', 'diy_help_needed')"]
+    params: List[Any] = []
+    if country and country != "all":
+        clauses.append("country = ?")
+        params.append(country)
+    if province and province != "all":
+        clauses.append("province = ?")
+        params.append(province)
+    if city_region and city_region != "all":
+        clauses.append("city_region = ?")
+        params.append(city_region)
+
+    where_sql = "WHERE " + " AND ".join(clauses)
+    cur.execute(
+        f"SELECT posted_at, primary_category, intent_type FROM posts {where_sql}",
+        params,
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    default_cats = categories_list or [
+        "Plumbing & Drain",
+        "Electrical & Lighting",
+        "Yardwork & Landscaping",
+        "Painting & Drywall",
+        "Carpentry, Doors & Windows",
+        "Mounting & Furniture Assembly",
+        "Roofing, Siding & Gutters",
+        "Flooring & Tile",
+        "Appliance & HVAC Repair",
+        "General Handyman & Odd Jobs",
+    ]
+    all_series_keys = ["All Demand"] + default_cats
+
+    # Parse dates safely
+    parsed_rows = []
+    max_dt: Optional[datetime] = None
+    for r in rows:
+        raw_dt = str(r["posted_at"] or "")[:19]
+        if len(raw_dt) < 10:
+            continue
+        try:
+            dt = datetime.strptime(raw_dt[:10], "%Y-%m-%d")
+            parsed_rows.append((dt, r["primary_category"]))
+            if max_dt is None or dt > max_dt:
+                max_dt = dt
+        except ValueError:
+            continue
+
+    if max_dt is None:
+        max_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    period_norm = (period or "1Y").upper()
+    month_abbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    buckets: List[Dict[str, str]] = []
+    if period_norm == "SEASONALITY":
+        for m_idx in range(1, 13):
+            buckets.append({"key": f"{m_idx:02d}", "label": month_abbr[m_idx - 1]})
+        series = {k: [0] * 12 for k in all_series_keys}
+        for dt, cat in parsed_rows:
+            b_idx = dt.month - 1
+            series["All Demand"][b_idx] += 1
+            if cat in series:
+                series[cat][b_idx] += 1
+    elif period_norm in ("7D", "1M"):
+        num_days = 7 if period_norm == "7D" else 30
+        start_dt = max_dt - timedelta(days=num_days - 1)
+        key_to_idx: Dict[str, int] = {}
+        for i in range(num_days):
+            d = start_dt + timedelta(days=i)
+            k = d.strftime("%Y-%m-%d")
+            lbl = f"{month_abbr[d.month - 1]} {d.day:02d}"
+            key_to_idx[k] = i
+            buckets.append({"key": k, "label": lbl})
+        series = {k: [0] * num_days for k in all_series_keys}
+        for dt, cat in parsed_rows:
+            k = dt.strftime("%Y-%m-%d")
+            if k in key_to_idx:
+                idx = key_to_idx[k]
+                series["All Demand"][idx] += 1
+                if cat in series:
+                    series[cat][idx] += 1
+    elif period_norm in ("3M", "6M"):
+        num_weeks = 13 if period_norm == "3M" else 26
+        # Align end of last 7-day bucket to max_dt
+        start_dt = max_dt - timedelta(days=num_weeks * 7 - 1)
+        for w in range(num_weeks):
+            w_start = start_dt + timedelta(days=w * 7)
+            w_end = w_start + timedelta(days=6)
+            lbl = f"{month_abbr[w_end.month - 1]} {w_end.day:02d}"
+            buckets.append({"key": w_end.strftime("%Y-%m-%d"), "label": lbl})
+        series = {k: [0] * num_weeks for k in all_series_keys}
+        for dt, cat in parsed_rows:
+            delta_days = (dt - start_dt).days
+            if 0 <= delta_days < num_weeks * 7:
+                w_idx = delta_days // 7
+                series["All Demand"][w_idx] += 1
+                if cat in series:
+                    series[cat][w_idx] += 1
+    else:
+        # '1Y' (12 months) or 'ALL' (24 months up to max_dt)
+        num_months = 12 if period_norm == "1Y" else 24
+        end_y, end_m = max_dt.year, max_dt.month
+        key_to_idx = {}
+        month_list = []
+        y, m = end_y, end_m
+        for _ in range(num_months):
+            month_list.append((y, m))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+        month_list.reverse()
+        for idx, (yy, mm) in enumerate(month_list):
+            k = f"{yy:04d}-{mm:02d}"
+            lbl = f"{month_abbr[mm - 1]} '{str(yy)[2:]}"
+            key_to_idx[k] = idx
+            buckets.append({"key": k, "label": lbl})
+        series = {k: [0] * num_months for k in all_series_keys}
+        for dt, cat in parsed_rows:
+            k = f"{dt.year:04d}-{dt.month:02d}"
+            if k in key_to_idx:
+                idx = key_to_idx[k]
+                series["All Demand"][idx] += 1
+                if cat in series:
+                    series[cat][idx] += 1
+
+    totals = {k: sum(vals) for k, vals in series.items()}
+    return {
+        "period": period_norm,
+        "buckets": buckets,
+        "series": series,
+        "totals": totals,
+        "categories": default_cats,
     }

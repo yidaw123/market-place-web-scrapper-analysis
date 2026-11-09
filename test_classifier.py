@@ -106,6 +106,17 @@ class CategoryTests(unittest.TestCase):
         self.assertEqual(r["intent_type"], "customer_hiring")
         self.assertEqual(r["urgency"], "high")
 
+    def test_specific_work_beats_generic_handyman(self):
+        r = classify("Looking for handyman around Oakland to retrofit dishwasher",
+                     "Looking for a recommendation for a local handy man")
+        self.assertEqual(r["primary_category"], "Appliance & HVAC Repair")
+
+        r2 = classify("Need a handyman for yardwork and weeding in backyard")
+        self.assertEqual(r2["primary_category"], "Yardwork & Landscaping")
+
+        r3 = classify("Handyman needed to replace light switch and ceiling fan")
+        self.assertEqual(r3["primary_category"], "Electrical & Lighting")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

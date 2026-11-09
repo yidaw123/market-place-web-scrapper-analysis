@@ -1,8 +1,30 @@
 let currentSettings = null;
 let summaryData = null;
+let trendData = null;
+let currentTrendPeriod = "1Y";
+let activeWorkTypes = new Set([
+  "Plumbing & Drain",
+  "Carpentry, Doors & Windows",
+  "Electrical & Lighting",
+  "Yardwork & Landscaping",
+]);
 let allFilteredPosts = [];
 let currentPage = 1;
 let pageSize = 15;
+
+const WORK_TYPE_COLORS = {
+  "All Demand": "#60a5fa",
+  "Plumbing & Drain": "#38bdf8",
+  "Electrical & Lighting": "#fbbf24",
+  "Yardwork & Landscaping": "#34d399",
+  "Carpentry, Doors & Windows": "#f97316",
+  "Painting & Drywall": "#a855f7",
+  "Mounting & Furniture Assembly": "#ec4899",
+  "Roofing, Siding & Gutters": "#14b8a6",
+  "Flooring & Tile": "#818cf8",
+  "Appliance & HVAC Repair": "#fb7185",
+  "General Handyman & Odd Jobs": "#94a3b8",
+};
 
 function esc(str) {
   return String(str ?? "")
@@ -54,11 +76,263 @@ async function refreshSummaryForGeo() {
   const province = document.getElementById("filter-province").value || "all";
   const city = document.getElementById("filter-region").value || "all";
   const qs = new URLSearchParams({ country, province, city_region: city }).toString();
-  const sumRes = await fetch(`/api/summary?${qs}`).then(r => r.json());
+  const [sumRes] = await Promise.all([
+    fetch(`/api/summary?${qs}`).then(r => r.json()),
+    loadTrends(),
+  ]);
   summaryData = sumRes;
   renderKPIs(sumRes.kpis);
   renderCategoryBars(sumRes.category_breakdown || []);
   renderRegionBars(sumRes.region_breakdown || [], sumRes.top_channels || []);
+}
+
+async function loadTrends() {
+  const country = document.getElementById("filter-country").value || "all";
+  const province = document.getElementById("filter-province").value || "all";
+  const city = document.getElementById("filter-region").value || "all";
+  const qs = new URLSearchParams({
+    period: currentTrendPeriod,
+    country,
+    province,
+    city_region: city,
+  }).toString();
+  trendData = await fetch(`/api/trends?${qs}`).then(r => r.json());
+  renderTrendPills();
+  renderTrendChart();
+}
+
+function setTrendPeriod(period) {
+  currentTrendPeriod = period;
+  document.querySelectorAll("#trend-period-tabs .period-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-period") === period);
+  });
+  loadTrends();
+}
+
+function toggleWorkTypePill(workType) {
+  if (activeWorkTypes.has(workType)) {
+    if (activeWorkTypes.size > 1) {
+      activeWorkTypes.delete(workType);
+    }
+  } else {
+    activeWorkTypes.add(workType);
+  }
+  renderTrendPills();
+  renderTrendChart();
+}
+
+function soloWorkType(workType, evt) {
+  if (evt) evt.stopPropagation();
+  activeWorkTypes.clear();
+  activeWorkTypes.add(workType);
+  renderTrendPills();
+  renderTrendChart();
+}
+
+function renderTrendPills() {
+  const container = document.getElementById("trend-work-pills");
+  if (!container || !trendData) return;
+  const totals = trendData.totals || {};
+  const keys = ["All Demand", ...(trendData.categories || [])];
+
+  container.innerHTML = keys.map(k => {
+    const isActive = activeWorkTypes.has(k);
+    const color = WORK_TYPE_COLORS[k] || "#60a5fa";
+    const count = totals[k] || 0;
+    const borderStyle = isActive ? `border-color:${color};box-shadow:0 0 0 1px ${color}40;` : "";
+    return `
+      <div class="work-pill ${isActive ? 'active' : ''}" style="${borderStyle}" data-wt="${esc(k)}" onclick="toggleWorkTypePill(this.dataset.wt)" ondblclick="soloWorkType(this.dataset.wt, event)" title="Click to toggle on chart (double-click to solo)">
+        <span class="work-pill-dot" style="background:${color};opacity:${isActive ? 1 : 0.45}"></span>
+        <span>${esc(k)}</span>
+        <span class="work-pill-count">${count}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderTrendChart() {
+  const svgWrap = document.getElementById("trend-svg-container");
+  const statsEl = document.getElementById("trend-stats-summary");
+  if (!svgWrap || !trendData) return;
+
+  const buckets = trendData.buckets || [];
+  const series = trendData.series || {};
+  const activeKeys = [...activeWorkTypes].filter(k => Array.isArray(series[k]));
+
+  if (!buckets.length || !activeKeys.length) {
+    svgWrap.innerHTML = `<div style="color:var(--muted);padding:40px;text-align:center;">Select at least one work type above to view demand trend.</div>`;
+    return;
+  }
+
+  // Compute period summary & peak bucket for the top active series
+  const leadKey = activeKeys[0];
+  const leadVals = series[leadKey] || [];
+  const leadTotal = leadVals.reduce((a, b) => a + b, 0);
+  let peakVal = -1;
+  let peakLbl = "-";
+  leadVals.forEach((v, idx) => {
+    if (v > peakVal && buckets[idx]) {
+      peakVal = v;
+      peakLbl = buckets[idx].label;
+    }
+  });
+
+  if (statsEl) {
+    const modeLabel = currentTrendPeriod === "SEASONALITY"
+      ? "Seasonal Monthly Aggregation (Jan - Dec)"
+      : `Timeframe: ${currentTrendPeriod}`;
+    statsEl.innerHTML = `
+      <span style="color:var(--text);font-weight:600;">${esc(modeLabel)}</span>
+      &nbsp;&middot;&nbsp;
+      <span>Showing <strong>${activeKeys.length}</strong> work type${activeKeys.length > 1 ? "s" : ""}</span>
+      &nbsp;&middot;&nbsp;
+      <span>Peak for <strong style="color:${WORK_TYPE_COLORS[leadKey] || '#60a5fa'}">${esc(leadKey)}</strong>: <strong>${esc(peakLbl)}</strong> (${peakVal} posts, ${leadTotal} total in period)</span>
+    `;
+  }
+
+  const width = Math.max(640, svgWrap.clientWidth || 920);
+  const height = 260;
+  const padL = 42;
+  const padR = 18;
+  const padT = 16;
+  const padB = 32;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  let maxY = 4;
+  activeKeys.forEach(k => {
+    (series[k] || []).forEach(v => {
+      if (v > maxY) maxY = v;
+    });
+  });
+  // Round maxY up to a clean step
+  const ySteps = 4;
+  const stepVal = Math.max(1, Math.ceil(maxY / ySteps));
+  const yCeil = stepVal * ySteps;
+
+  const xAt = idx => buckets.length <= 1 ? padL + plotW / 2 : padL + (idx / (buckets.length - 1)) * plotW;
+  const yAt = val => padT + plotH - (val / yCeil) * plotH;
+
+  // Grid lines & Y-axis labels
+  let gridHtml = "";
+  for (let i = 0; i <= ySteps; i++) {
+    const v = i * stepVal;
+    const y = yAt(v).toFixed(1);
+    gridHtml += `
+      <line x1="${padL}" y1="${y}" x2="${width - padR}" y2="${y}" stroke="rgba(148,163,184,0.14)" stroke-dasharray="${i === 0 ? 'none' : '3,3'}" />
+      <text x="${padL - 8}" y="${Number(y) + 4}" text-anchor="end" fill="#94a3b8" font-size="11">${v}</text>
+    `;
+  }
+
+  // X-axis labels (avoid crowding on 30-day / 26-week charts)
+  const labelStride = Math.max(1, Math.ceil(buckets.length / 12));
+  let xLabelsHtml = "";
+  buckets.forEach((b, idx) => {
+    if (idx % labelStride === 0 || idx === buckets.length - 1) {
+      const x = xAt(idx).toFixed(1);
+      xLabelsHtml += `<text x="${x}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="11">${esc(b.label)}</text>`;
+    }
+  });
+
+  // Defs & lines for each active work type
+  let defsHtml = "";
+  let pathsHtml = "";
+  activeKeys.forEach((k, sIdx) => {
+    const vals = series[k] || [];
+    const color = WORK_TYPE_COLORS[k] || "#60a5fa";
+    const pts = vals.map((v, idx) => `${xAt(idx).toFixed(1)},${yAt(v).toFixed(1)}`);
+    const gradId = `trendGrad_${sIdx}`;
+
+    if (activeKeys.length <= 2) {
+      defsHtml += `
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.26" />
+          <stop offset="100%" stop-color="${color}" stop-opacity="0.0" />
+        </linearGradient>
+      `;
+      const areaPts = `${xAt(0).toFixed(1)},${(padT + plotH).toFixed(1)} ` + pts.join(" ") + ` ${xAt(vals.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+      pathsHtml += `<polygon points="${areaPts}" fill="url(#${gradId})" />`;
+    }
+
+    pathsHtml += `<polyline fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="${pts.join(" ")}" />`;
+    vals.forEach((v, idx) => {
+      const cx = xAt(idx).toFixed(1);
+      const cy = yAt(v).toFixed(1);
+      pathsHtml += `<circle cx="${cx}" cy="${cy}" r="3.2" fill="${color}" stroke="#0f172a" stroke-width="1.4" />`;
+    });
+  });
+
+  svgWrap.innerHTML = `
+    <svg id="trend-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" style="overflow:visible;cursor:crosshair;"
+         onmousemove="onTrendChartHover(event)" onmouseleave="hideTrendTooltip()">
+      <defs>${defsHtml}</defs>
+      ${gridHtml}
+      ${xLabelsHtml}
+      ${pathsHtml}
+      <line id="trend-crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,3" style="display:none;" />
+    </svg>
+  `;
+}
+
+function onTrendChartHover(evt) {
+  if (!trendData || !trendData.buckets || !trendData.buckets.length) return;
+  const svg = document.getElementById("trend-svg");
+  const tooltip = document.getElementById("trend-tooltip");
+  const cross = document.getElementById("trend-crosshair");
+  const wrap = document.getElementById("trend-chart-wrap");
+  if (!svg || !tooltip || !wrap) return;
+
+  const rect = svg.getBoundingClientRect();
+  const relX = evt.clientX - rect.left;
+  const padL = 42;
+  const padR = 18;
+  const plotW = rect.width - padL - padR;
+  const buckets = trendData.buckets;
+  const ratio = Math.max(0, Math.min(1, (relX - padL) / Math.max(1, plotW)));
+  const idx = Math.round(ratio * (buckets.length - 1));
+  const bucket = buckets[idx];
+  if (!bucket) return;
+
+  const xPos = buckets.length <= 1 ? padL + plotW / 2 : padL + (idx / (buckets.length - 1)) * plotW;
+  if (cross) {
+    cross.setAttribute("x1", xPos.toFixed(1));
+    cross.setAttribute("x2", xPos.toFixed(1));
+    cross.style.display = "block";
+  }
+
+  const activeKeys = [...activeWorkTypes].filter(k => Array.isArray(trendData.series[k]));
+  const rows = activeKeys
+    .map(k => ({ key: k, val: (trendData.series[k] || [])[idx] || 0, color: WORK_TYPE_COLORS[k] || "#60a5fa" }))
+    .sort((a, b) => b.val - a.val);
+
+  tooltip.innerHTML = `
+    <div class="trend-tooltip-title">${esc(bucket.label)}</div>
+    ${rows.map(r => `
+      <div class="trend-tooltip-row">
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <span class="work-pill-dot" style="background:${r.color}"></span>
+          <span>${esc(r.key)}</span>
+        </span>
+        <strong>${r.val}</strong>
+      </div>
+    `).join("")}
+  `;
+  tooltip.style.display = "block";
+
+  const wrapRect = wrap.getBoundingClientRect();
+  let left = evt.clientX - wrapRect.left + 14;
+  if (left + 210 > wrapRect.width) {
+    left = evt.clientX - wrapRect.left - 210;
+  }
+  tooltip.style.left = `${Math.max(8, left)}px`;
+  tooltip.style.top = `42px`;
+}
+
+function hideTrendTooltip() {
+  const tooltip = document.getElementById("trend-tooltip");
+  const cross = document.getElementById("trend-crosshair");
+  if (tooltip) tooltip.style.display = "none";
+  if (cross) cross.style.display = "none";
 }
 
 async function loadDashboard() {
@@ -152,7 +426,7 @@ function renderRegionBars(regions, channels) {
 function populateFilterDropdowns(sumRes) {
   const catSel = document.getElementById("filter-category");
   const currentCat = catSel.value || "all";
-  catSel.innerHTML = `<option value="all">All Categories</option>` +
+  catSel.innerHTML = `<option value="all">All Types of Work</option>` +
     (sumRes.categories_list || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   catSel.value = currentCat;
 
@@ -215,8 +489,23 @@ async function onCityChange() {
   await loadPosts();
 }
 
+function onCategoryDropdownChange() {
+  const cat = document.getElementById("filter-category").value;
+  if (cat && cat !== "all") {
+    activeWorkTypes.add(cat);
+    renderTrendPills();
+    renderTrendChart();
+  }
+  loadPosts();
+}
+
 function filterByCategory(cat) {
   document.getElementById("filter-category").value = cat;
+  if (cat && cat !== "all") {
+    activeWorkTypes.add(cat);
+    renderTrendPills();
+    renderTrendChart();
+  }
   switchTab("leads");
   loadPosts();
 }

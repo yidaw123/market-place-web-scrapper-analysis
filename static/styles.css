@@ -427,3 +427,137 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
   gap: 8px;
   font-size: 0.82rem;
 }
+
+/* Stock-Market Style Demand Trend & Seasonality Chart */
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.trend-title-block h2 {
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+.trend-title-block p {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.period-tabs {
+  display: inline-flex;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.period-btn {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.period-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.period-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+.work-type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.55);
+  background: rgba(15, 23, 42, 0.3);
+}
+.work-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-weight: 500;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.14s ease;
+}
+.work-pill:hover {
+  border-color: #64748b;
+  color: var(--text);
+}
+.work-pill.active {
+  color: #f8fafc;
+  background: rgba(59, 130, 246, 0.12);
+}
+.work-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.work-pill-count {
+  font-size: 0.71rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+}
+.trend-chart-wrap {
+  position: relative;
+  padding: 16px 18px 12px;
+}
+.trend-summary-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.81rem;
+  color: var(--muted);
+}
+.trend-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 20;
+  min-width: 190px;
+  display: none;
+}
+.trend-tooltip-title {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.trend-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
