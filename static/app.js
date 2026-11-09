@@ -71,13 +71,186 @@ function onIntentDropdownChange() {
   loadPosts();
 }
 
+let staticSnapshot = null;
+
+async function ensureStaticSnapshot() {
+  if (staticSnapshot) return staticSnapshot;
+  const resp = await fetch("./static/snapshot.json");
+  staticSnapshot = await resp.json();
+  return staticSnapshot;
+}
+
+function computeStaticSummary(snap, country, province, city_region) {
+  const posts = (snap.posts || []).filter(p => {
+    if (country && country !== "all" && p.country !== country) return false;
+    if (province && province !== "all" && p.province !== province) return false;
+    if (city_region && city_region !== "all" && p.city_region !== city_region) return false;
+    return true;
+  });
+  let hiring = 0, diy = 0, supply = 0, jobs = 0;
+  const catMap = {};
+  const regMap = {};
+  const chMap = {};
+  posts.forEach(p => {
+    if (p.intent_type === "customer_hiring") hiring++;
+    else if (p.intent_type === "diy_help_needed") diy++;
+    else if (p.intent_type === "service_provider_ad") supply++;
+    else if (p.intent_type === "job_posting") jobs++;
+    if (p.intent_type === "irrelevant") return;
+
+    const c = p.primary_category || "General Handyman & Odd Jobs";
+    if (!catMap[c]) catMap[c] = { primary_category: c, hiring_count: 0, diy_count: 0, total_demand: 0, provider_supply: 0 };
+    if (p.intent_type === "customer_hiring") { catMap[c].hiring_count++; catMap[c].total_demand++; }
+    else if (p.intent_type === "diy_help_needed") { catMap[c].diy_count++; catMap[c].total_demand++; }
+    else if (p.intent_type === "service_provider_ad") catMap[c].provider_supply++;
+
+    const r = p.city_region || "National / DIY Forums";
+    if (!regMap[r]) regMap[r] = { city_region: r, province: p.province, country: p.country, hiring_count: 0, diy_count: 0, total_demand: 0, provider_supply: 0 };
+    if (p.intent_type === "customer_hiring") { regMap[r].hiring_count++; regMap[r].total_demand++; }
+    else if (p.intent_type === "diy_help_needed") { regMap[r].diy_count++; regMap[r].total_demand++; }
+    else if (p.intent_type === "service_provider_ad") regMap[r].provider_supply++;
+
+    if (p.intent_type === "customer_hiring" || p.intent_type === "diy_help_needed") {
+      const ch = p.source_detail || p.platform;
+      if (!chMap[ch]) chMap[ch] = { source_detail: ch, platform: p.platform, city_region: r, demand_count: 0, direct_hiring: 0 };
+      chMap[ch].demand_count++;
+      if (p.intent_type === "customer_hiring") chMap[ch].direct_hiring++;
+    }
+  });
+  return {
+    kpis: {
+      total_posts: posts.length,
+      total_demand_leads: hiring + diy,
+      direct_hiring_leads: hiring,
+      diy_conversion_leads: diy,
+      competitor_supply_ads: supply,
+      job_postings: jobs,
+    },
+    categories_list: snap.categories_list || Object.keys(WORK_TYPE_COLORS).filter(k => k !== "All Demand"),
+    category_breakdown: Object.values(catMap).sort((a, b) => b.total_demand - a.total_demand),
+    region_breakdown: Object.values(regMap).sort((a, b) => b.total_demand - a.total_demand),
+    top_channels: Object.values(chMap).sort((a, b) => b.direct_hiring - a.direct_hiring || b.demand_count - a.demand_count).slice(0, 12),
+  };
+}
+
+function computeStaticTrends(snap, period, country, province, city_region) {
+  const cats = snap.categories_list || Object.keys(WORK_TYPE_COLORS).filter(k => k !== "All Demand");
+  const allKeys = ["All Demand", ...cats];
+  const demandPosts = (snap.posts || []).filter(p => {
+    if (p.intent_type !== "customer_hiring" && p.intent_type !== "diy_help_needed") return false;
+    if (country && country !== "all" && p.country !== country) return false;
+    if (province && province !== "all" && p.province !== province) return false;
+    if (city_region && city_region !== "all" && p.city_region !== city_region) return false;
+    return true;
+  });
+
+  const monthAbbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let maxDateStr = "2026-11-09";
+  demandPosts.forEach(p => {
+    const d = String(p.posted_at || "").slice(0, 10);
+    if (d.length === 10 && d > maxDateStr) maxDateStr = d;
+  });
+  const maxDt = new Date(maxDateStr + "T00:00:00Z");
+  const pNorm = (period || "1Y").toUpperCase();
+  const buckets = [];
+  const series = {};
+
+  if (pNorm === "SEASONALITY") {
+    for (let m = 1; m <= 12; m++) buckets.push({ key: String(m).padStart(2, "0"), label: monthAbbr[m - 1] });
+    allKeys.forEach(k => { series[k] = new Array(12).fill(0); });
+    demandPosts.forEach(p => {
+      const m = parseInt(String(p.posted_at || "").slice(5, 7), 10);
+      if (m >= 1 && m <= 12) {
+        series["All Demand"][m - 1]++;
+        if (series[p.primary_category]) series[p.primary_category][m - 1]++;
+      }
+    });
+  } else if (pNorm === "7D" || pNorm === "1M") {
+    const nDays = pNorm === "7D" ? 7 : 30;
+    const keyIdx = {};
+    for (let i = 0; i < nDays; i++) {
+      const d = new Date(maxDt.getTime() - (nDays - 1 - i) * 86400000);
+      const k = d.toISOString().slice(0, 10);
+      keyIdx[k] = i;
+      buckets.push({ key: k, label: `${monthAbbr[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, "0")}` });
+    }
+    allKeys.forEach(k => { series[k] = new Array(nDays).fill(0); });
+    demandPosts.forEach(p => {
+      const k = String(p.posted_at || "").slice(0, 10);
+      if (keyIdx[k] !== undefined) {
+        series["All Demand"][keyIdx[k]]++;
+        if (series[p.primary_category]) series[p.primary_category][keyIdx[k]]++;
+      }
+    });
+  } else if (pNorm === "3M" || pNorm === "6M") {
+    const nWeeks = pNorm === "3M" ? 13 : 26;
+    const startMs = maxDt.getTime() - (nWeeks * 7 - 1) * 86400000;
+    for (let w = 0; w < nWeeks; w++) {
+      const wEnd = new Date(startMs + (w * 7 + 6) * 86400000);
+      buckets.push({ key: wEnd.toISOString().slice(0, 10), label: `${monthAbbr[wEnd.getUTCMonth()]} ${String(wEnd.getUTCDate()).padStart(2, "0")}` });
+    }
+    allKeys.forEach(k => { series[k] = new Array(nWeeks).fill(0); });
+    demandPosts.forEach(p => {
+      const dStr = String(p.posted_at || "").slice(0, 10);
+      if (dStr.length === 10) {
+        const dtMs = new Date(dStr + "T00:00:00Z").getTime();
+        const deltaDays = Math.floor((dtMs - startMs) / 86400000);
+        if (deltaDays >= 0 && deltaDays < nWeeks * 7) {
+          const wIdx = Math.floor(deltaDays / 7);
+          series["All Demand"][wIdx]++;
+          if (series[p.primary_category]) series[p.primary_category][wIdx]++;
+        }
+      }
+    });
+  } else {
+    const nMonths = pNorm === "1Y" ? 12 : 24;
+    let y = maxDt.getUTCFullYear(), m = maxDt.getUTCMonth() + 1;
+    const mList = [];
+    for (let i = 0; i < nMonths; i++) {
+      mList.push([y, m]);
+      m--;
+      if (m === 0) { m = 12; y--; }
+    }
+    mList.reverse();
+    const keyIdx = {};
+    mList.forEach(([yy, mm], idx) => {
+      const k = `${yy}-${String(mm).padStart(2, "0")}`;
+      keyIdx[k] = idx;
+      buckets.push({ key: k, label: `${monthAbbr[mm - 1]} '${String(yy).slice(2)}` });
+    });
+    allKeys.forEach(k => { series[k] = new Array(nMonths).fill(0); });
+    demandPosts.forEach(p => {
+      const k = String(p.posted_at || "").slice(0, 7);
+      if (keyIdx[k] !== undefined) {
+        series["All Demand"][keyIdx[k]]++;
+        if (series[p.primary_category]) series[p.primary_category][keyIdx[k]]++;
+      }
+    });
+  }
+
+  const totals = {};
+  allKeys.forEach(k => { totals[k] = (series[k] || []).reduce((a, b) => a + b, 0); });
+  return { period: pNorm, buckets, series, totals, categories: cats };
+}
+
+async function fetchJsonWithFallback(url, fallbackFn) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return await resp.json();
+  } catch (_e) {
+    const snap = await ensureStaticSnapshot();
+    return fallbackFn(snap);
+  }
+}
+
 async function refreshSummaryForGeo() {
   const country = document.getElementById("filter-country").value || "all";
   const province = document.getElementById("filter-province").value || "all";
   const city = document.getElementById("filter-region").value || "all";
   const qs = new URLSearchParams({ country, province, city_region: city }).toString();
   const [sumRes] = await Promise.all([
-    fetch(`/api/summary?${qs}`).then(r => r.json()),
+    fetchJsonWithFallback(`/api/summary?${qs}`, snap => computeStaticSummary(snap, country, province, city)),
     loadTrends(),
   ]);
   summaryData = sumRes;
@@ -96,7 +269,9 @@ async function loadTrends() {
     province,
     city_region: city,
   }).toString();
-  trendData = await fetch(`/api/trends?${qs}`).then(r => r.json());
+  trendData = await fetchJsonWithFallback(`/api/trends?${qs}`, snap =>
+    computeStaticTrends(snap, currentTrendPeriod, country, province, city)
+  );
   renderTrendPills();
   renderTrendChart();
 }
@@ -337,8 +512,8 @@ function hideTrendTooltip() {
 
 async function loadDashboard() {
   const [sumRes, setRes] = await Promise.all([
-    fetch("/api/summary").then(r => r.json()),
-    fetch("/api/settings").then(r => r.json()),
+    fetchJsonWithFallback("/api/summary", snap => computeStaticSummary(snap, "all", "all", "all")),
+    fetchJsonWithFallback("/api/settings", snap => snap.settings || {}),
   ]);
   summaryData = sumRes;
   currentSettings = setRes;
@@ -543,7 +718,34 @@ async function loadPosts() {
   const qs = getFilterQueryString();
   document.getElementById("export-btn").href = `/api/export.csv?${qs}`;
 
-  const res = await fetch(`/api/posts?${qs}`).then(r => r.json());
+  const res = await fetchJsonWithFallback(`/api/posts?${qs}`, snap => {
+    const plat = document.getElementById("filter-platform").value;
+    const intent = document.getElementById("filter-intent").value;
+    const cat = document.getElementById("filter-category").value;
+    const country = document.getElementById("filter-country").value;
+    const prov = document.getElementById("filter-province").value;
+    const city = document.getElementById("filter-region").value;
+    const urg = document.getElementById("filter-urgency").value;
+    const q = (document.getElementById("filter-search").value || "").trim().toLowerCase();
+
+    const filtered = (snap.posts || []).filter(p => {
+      if (plat !== "all" && p.platform !== plat) return false;
+      if (intent === "demand_only") {
+        if (p.intent_type !== "customer_hiring" && p.intent_type !== "diy_help_needed") return false;
+      } else if (intent !== "all" && p.intent_type !== intent) return false;
+      if (cat !== "all" && p.primary_category !== cat) return false;
+      if (country !== "all" && p.country !== country) return false;
+      if (prov !== "all" && p.province !== prov) return false;
+      if (city !== "all" && p.city_region !== city) return false;
+      if (urg !== "all" && p.urgency !== urg) return false;
+      if (q) {
+        const hay = `${p.title || ""} ${p.body || ""} ${p.neighborhood || ""} ${p.source_detail || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    return { posts: filtered, count: filtered.length };
+  });
   allFilteredPosts = res.posts || [];
   applySortAndRender();
 }

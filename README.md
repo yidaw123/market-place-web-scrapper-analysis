@@ -1,18 +1,22 @@
-# Handyman Marketplace — Market Research & Lead Intelligence Tool
+# Market Place Web Scrapper Analysis
 
-A multi-platform scraper, service categorizer, and interactive market research dashboard built for a **Handyman & Home Services Marketplace** startup.
+A multi-platform scraper, work-type & intent classifier, and interactive demand & seasonality dashboard built for a **Handyman & Home Services Marketplace** startup.
+
+**Live Hosted App (GitHub Pages):** https://yidaw123.github.io/market-place-web-scrapper-analysis/
 
 ## Key Capabilities
 
 1. **Multi-Platform Live Scrapers (`scrapers/`)**
-   - **Reddit (`scrapers/reddit_scraper.py`)**: Scrapes both local metro subreddits (`r/Austin`, `r/bayarea`, `r/AskSF`, `r/AskNYC`, `r/AskLosAngeles`, etc.) for local handyman hiring requests and national home improvement forums (`r/HomeImprovement`, `r/DIY`, `r/handyman`, `r/fixit`, `r/Plumbing`, `r/landscaping`) for DIY struggle & pricing questions.
-   - **Craigslist (`scrapers/craigslist_scraper.py`)**: Scrapes regional Craigslist boards across **Labor Gigs (`lbg`)**, **Domestic Gigs (`dmg`)**, and **Household Services (`hss`)** to capture high-intent customer gigs as well as local handyman supply benchmarks.
+   - **Kijiji Canada (`scrapers/kijiji_scraper.py`)**: Scrapes Canadian homeowner service requests and wanted ads across Ontario, British Columbia, Alberta, Quebec, Manitoba, Saskatchewan, and Nova Scotia.
+   - **Reddit (`scrapers/reddit_scraper.py`)**: Scrapes both local metro subreddits (`r/askTO`, `r/toronto`, `r/vancouver`, `r/Calgary`, `r/montreal`, `r/Austin`, `r/bayarea`, `r/AskNYC`, `r/AskLosAngeles`, etc.) and national home improvement forums (`r/HomeImprovement`, `r/DIY`, `r/fixit`, `r/Plumbing`, `r/landscaping`).
+   - **Craigslist (`scrapers/craigslist_scraper.py`)**: Scrapes regional Craigslist boards across **Labor Gigs (`lbg`)**, **Domestic Gigs (`dmg`)**, and **Household Services (`hss`)**.
+   - **DIY Stack Exchange (`scrapers/stackexchange_scraper.py`)**: Scrapes homeowner repair & troubleshooting questions from `diy.stackexchange.com`.
 
-2. **Hybrid Intent & Service Categorization Engine (`classifier.py`)**
-   - **Stage 1 (Rule & Weighted Keyword Scoring)**: Instantly classifies posts by intent (`customer_hiring`, `diy_help_needed`, `service_provider_ad`, `irrelevant`), scores buyer urgency (`high`, `medium`, `low`), extracts budget/price mentions, and maps each post to 10 core service verticals:
+2. **Work-Type & Intent Classification Engine (`classifier.py`)**
+   - Classifies posts by intent (`customer_hiring`, `diy_help_needed`, `service_provider_ad`, `job_posting`, `irrelevant`), urgency (`high`, `medium`, `low`), and specific **Type of Work**:
      - Plumbing & Drain
      - Electrical & Lighting
-     - Gardening & Landscaping
+     - Yardwork & Landscaping
      - Painting & Drywall
      - Carpentry, Doors & Windows
      - Mounting & Furniture Assembly
@@ -20,12 +24,11 @@ A multi-platform scraper, service categorizer, and interactive market research d
      - Flooring & Tile
      - Appliance & HVAC Repair
      - General Handyman & Odd Jobs
-   - **Stage 2 (Optional LLM Enrichment)**: Add a **Google Gemini** (`gemini-2.5-flash`) or **OpenAI** (`gpt-4o-mini`) API key in the dashboard settings modal to refine pain points and generate tailored ad copy hooks.
 
-3. **Interactive Web Dashboard (`app.py`, `static/`)**
-   - Visualizes **Demand vs. Supply** across every service category and target metro area.
-   - Generates an **Ad Campaign & Targeting Playbook** highlighting underserved service categories, DIY-to-Pro conversion opportunities, and top-converting local channels.
-   - One-click **CSV Export** for Meta/Google/Reddit ad campaign planning or direct lead outreach.
+3. **Interactive Web Dashboard & Stock-Market Style Demand Chart (`app.py`, `static/`)**
+   - **Stock-Market Style Demand Trend & Seasonality Chart**: Interactive multi-line trend chart across `7D`, `1M`, `3M`, `6M`, `1Y`, `ALL`, and `Seasonality (Jan-Dec)` with clickable work-type toggles and crosshair hover tooltips.
+   - **Demand vs. Supply Breakdown** across every work type and geographic region (`Canada` -> Province -> City, `United States` -> State -> City).
+   - **Categorized Leads Explorer** with pagination, sorting (`Relevance`, `Newest First`, `Oldest First`, `Urgency`), `Reset Filters`, direct `Link` buttons, and CSV Export.
 
 ## Quick Start
 

@@ -185,7 +185,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if os.path.exists(file_path):
                 with open(file_path, "rb") as f:
                     content = f.read()
-                ctype = "text/css" if rel_name.endswith(".css") else "application/javascript" if rel_name.endswith(".js") else "text/plain"
+                ctype = (
+                    "text/css"
+                    if rel_name.endswith(".css")
+                    else "application/javascript"
+                    if rel_name.endswith(".js")
+                    else "application/json"
+                    if rel_name.endswith(".json")
+                    else "text/plain"
+                )
                 self.send_response(200)
                 self.send_header("Content-Type", f"{ctype}; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
