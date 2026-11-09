@@ -2,6 +2,8 @@ let currentSettings = null;
 let summaryData = null;
 let trendData = null;
 let currentTrendPeriod = "1Y";
+let currentTrendMode = "count"; // 'count' or 'share'
+let selectedPricingTrade = "all";
 const WORK_TYPE_COLORS = {
   "All Demand": "#60a5fa",
   "Plumbing & Drain": "#38bdf8",
@@ -57,15 +59,18 @@ function quickSelectIntent(intentVal) {
   document.getElementById("filter-intent").value = intentVal;
   if (intentVal === "demand_only") {
     document.getElementById("filter-category").value = "all";
+    const subSel = document.getElementById("filter-sub-service");
+    if (subSel) subSel.value = "all";
   }
   syncActiveKpiCard(intentVal);
-  switchTab("leads");
+  loadTrends();
   loadPosts();
 }
 
 function onIntentDropdownChange() {
   const val = document.getElementById("filter-intent").value;
   syncActiveKpiCard(val);
+  loadTrends();
   loadPosts();
 }
 
@@ -87,8 +92,33 @@ function computeStaticSummary(snap, country, province, city_region) {
   });
   let hiring = 0, diy = 0, supply = 0, jobs = 0;
   const catMap = {};
+  const subMap = {};
+  const priceCatMap = {};
   const regMap = {};
   const chMap = {};
+
+  const addPrice = (bucket, p) => {
+    const pv = Number(p.price_value || 0);
+    if (pv <= 0) return;
+    if (p.price_type === "hourly") bucket.hrVals.push(pv);
+    else if (p.price_type === "flat") bucket.flatVals.push(pv);
+  };
+  const finalizePrice = b => {
+    const hr = b.hrVals;
+    const fl = b.flatVals;
+    b.hourly_count = hr.length;
+    b.avg_hourly = hr.length ? Math.round(hr.reduce((a, x) => a + x, 0) / hr.length) : null;
+    b.min_hourly = hr.length ? Math.round(Math.min(...hr)) : null;
+    b.max_hourly = hr.length ? Math.round(Math.max(...hr)) : null;
+    b.flat_count = fl.length;
+    b.avg_flat = fl.length ? Math.round(fl.reduce((a, x) => a + x, 0) / fl.length) : null;
+    b.min_flat = fl.length ? Math.round(Math.min(...fl)) : null;
+    b.max_flat = fl.length ? Math.round(Math.max(...fl)) : null;
+    delete b.hrVals;
+    delete b.flatVals;
+    return b;
+  };
+
   posts.forEach(p => {
     if (p.intent_type === "customer_hiring") hiring++;
     else if (p.intent_type === "diy_help_needed") diy++;
@@ -97,10 +127,21 @@ function computeStaticSummary(snap, country, province, city_region) {
     if (p.intent_type === "irrelevant") return;
 
     const c = p.primary_category || "General Handyman & Odd Jobs";
+    const sub = p.sub_service || "General Service";
     if (!catMap[c]) catMap[c] = { primary_category: c, hiring_count: 0, diy_count: 0, total_demand: 0, provider_supply: 0 };
     if (p.intent_type === "customer_hiring") { catMap[c].hiring_count++; catMap[c].total_demand++; }
     else if (p.intent_type === "diy_help_needed") { catMap[c].diy_count++; catMap[c].total_demand++; }
     else if (p.intent_type === "service_provider_ad") catMap[c].provider_supply++;
+
+    if (!priceCatMap[c]) priceCatMap[c] = { primary_category: c, hrVals: [], flatVals: [] };
+    addPrice(priceCatMap[c], p);
+
+    const sk = `${c}|||${sub}`;
+    if (!subMap[sk]) subMap[sk] = { primary_category: c, sub_service: sub, hiring_count: 0, diy_count: 0, total_demand: 0, provider_supply: 0, hrVals: [], flatVals: [] };
+    if (p.intent_type === "customer_hiring") { subMap[sk].hiring_count++; subMap[sk].total_demand++; }
+    else if (p.intent_type === "diy_help_needed") { subMap[sk].diy_count++; subMap[sk].total_demand++; }
+    else if (p.intent_type === "service_provider_ad") subMap[sk].provider_supply++;
+    addPrice(subMap[sk], p);
 
     const r = p.city_region || "National / DIY Forums";
     if (!regMap[r]) regMap[r] = { city_region: r, province: p.province, country: p.country, hiring_count: 0, diy_count: 0, total_demand: 0, provider_supply: 0 };
@@ -125,17 +166,26 @@ function computeStaticSummary(snap, country, province, city_region) {
       job_postings: jobs,
     },
     categories_list: snap.categories_list || Object.keys(WORK_TYPE_COLORS).filter(k => k !== "All Demand"),
+    sub_services_map: snap.sub_services_map || {},
     category_breakdown: Object.values(catMap).sort((a, b) => b.total_demand - a.total_demand),
+    sub_service_breakdown: Object.values(subMap).map(finalizePrice).sort((a, b) => b.total_demand - a.total_demand),
+    pricing_by_category: Object.values(priceCatMap).map(finalizePrice),
     region_breakdown: Object.values(regMap).sort((a, b) => b.total_demand - a.total_demand),
     top_channels: Object.values(chMap).sort((a, b) => b.direct_hiring - a.direct_hiring || b.demand_count - a.demand_count).slice(0, 12),
   };
 }
 
-function computeStaticTrends(snap, period, country, province, city_region) {
+function computeStaticTrends(snap, period, country, province, city_region, intent_type) {
   const cats = snap.categories_list || Object.keys(WORK_TYPE_COLORS).filter(k => k !== "All Demand");
   const allKeys = ["All Demand", ...cats];
   const demandPosts = (snap.posts || []).filter(p => {
-    if (p.intent_type !== "customer_hiring" && p.intent_type !== "diy_help_needed") return false;
+    if (!intent_type || intent_type === "demand_only") {
+      if (p.intent_type !== "customer_hiring" && p.intent_type !== "diy_help_needed") return false;
+    } else if (intent_type === "all") {
+      if (p.intent_type === "irrelevant") return false;
+    } else if (p.intent_type !== intent_type) {
+      return false;
+    }
     if (country && country !== "all" && p.country !== country) return false;
     if (province && province !== "all" && p.province !== province) return false;
     if (city_region && city_region !== "all" && p.city_region !== city_region) return false;
@@ -253,6 +303,7 @@ async function refreshSummaryForGeo() {
   ]);
   summaryData = sumRes;
   renderKPIs(sumRes.kpis);
+  renderPricingAndTaskBreakdown();
   renderCategoryBars(sumRes.category_breakdown || []);
   renderRegionBars(sumRes.region_breakdown || [], sumRes.top_channels || []);
 }
@@ -261,16 +312,27 @@ async function loadTrends() {
   const country = document.getElementById("filter-country").value || "all";
   const province = document.getElementById("filter-province").value || "all";
   const city = document.getElementById("filter-region").value || "all";
+  const intentEl = document.getElementById("filter-intent");
+  const intent_type = intentEl ? intentEl.value : "demand_only";
   const qs = new URLSearchParams({
     period: currentTrendPeriod,
     country,
     province,
     city_region: city,
+    intent_type,
   }).toString();
   trendData = await fetchJsonWithFallback(`/api/trends?${qs}`, snap =>
-    computeStaticTrends(snap, currentTrendPeriod, country, province, city)
+    computeStaticTrends(snap, currentTrendPeriod, country, province, city, intent_type)
   );
   renderTrendPills();
+  renderTrendChart();
+}
+
+function setTrendMode(mode) {
+  currentTrendMode = mode;
+  document.querySelectorAll("#trend-mode-tabs .period-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-mode") === mode);
+  });
   renderTrendChart();
 }
 
@@ -372,15 +434,26 @@ function renderTrendChart() {
     return;
   }
 
+  // Helper to get plotted value at bucket idx (either raw count or % share of bucket total)
+  const allDemandVals = series["All Demand"] || [];
+  const isShare = currentTrendMode === "share";
+  const valAt = (k, idx) => {
+    const raw = (series[k] || [])[idx] || 0;
+    if (!isShare) return raw;
+    const tot = allDemandVals[idx] || 0;
+    return tot > 0 ? Math.round((raw / tot) * 1000) / 10 : 0;
+  };
+
   // Compute period summary & peak bucket for the top active series
   const leadKey = activeKeys[0];
   const leadVals = series[leadKey] || [];
   const leadTotal = leadVals.reduce((a, b) => a + b, 0);
   let peakVal = -1;
   let peakLbl = "-";
-  leadVals.forEach((v, idx) => {
-    if (v > peakVal && buckets[idx]) {
-      peakVal = v;
+  leadVals.forEach((_v, idx) => {
+    const pv = valAt(leadKey, idx);
+    if (pv > peakVal && buckets[idx]) {
+      peakVal = pv;
       peakLbl = buckets[idx].label;
     }
   });
@@ -389,31 +462,32 @@ function renderTrendChart() {
     const modeLabel = currentTrendPeriod === "SEASONALITY"
       ? "Seasonal Monthly Aggregation (Jan - Dec)"
       : `Timeframe: ${currentTrendPeriod}`;
+    const peakUnit = isShare ? `${peakVal}% share` : `${peakVal} posts`;
     statsEl.innerHTML = `
       <span style="color:var(--text);font-weight:600;">${esc(modeLabel)}</span>
       &nbsp;&middot;&nbsp;
-      <span>Showing <strong>${activeKeys.length}</strong> work type${activeKeys.length > 1 ? "s" : ""}</span>
+      <span>Showing <strong>${activeKeys.length}</strong> trade${activeKeys.length > 1 ? "s" : ""} (${isShare ? "% Share of Month" : "Post Count"})</span>
       &nbsp;&middot;&nbsp;
-      <span>Peak for <strong style="color:${WORK_TYPE_COLORS[leadKey] || '#60a5fa'}">${esc(leadKey)}</strong>: <strong>${esc(peakLbl)}</strong> (${peakVal} posts, ${leadTotal} total in period)</span>
+      <span>Peak for <strong style="color:${WORK_TYPE_COLORS[leadKey] || '#60a5fa'}">${esc(leadKey)}</strong>: <strong>${esc(peakLbl)}</strong> (${peakUnit}, ${leadTotal} total posts)</span>
     `;
   }
 
   const width = Math.max(640, svgWrap.clientWidth || 920);
   const height = 260;
-  const padL = 42;
+  const padL = 46;
   const padR = 18;
   const padT = 16;
   const padB = 32;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
 
-  let maxY = 4;
+  let maxY = isShare ? 20 : 4;
   activeKeys.forEach(k => {
-    (series[k] || []).forEach(v => {
+    buckets.forEach((_b, idx) => {
+      const v = valAt(k, idx);
       if (v > maxY) maxY = v;
     });
   });
-  // Round maxY up to a clean step
   const ySteps = 4;
   const stepVal = Math.max(1, Math.ceil(maxY / ySteps));
   const yCeil = stepVal * ySteps;
@@ -426,9 +500,10 @@ function renderTrendChart() {
   for (let i = 0; i <= ySteps; i++) {
     const v = i * stepVal;
     const y = yAt(v).toFixed(1);
+    const yLbl = isShare ? `${v}%` : `${v}`;
     gridHtml += `
       <line x1="${padL}" y1="${y}" x2="${width - padR}" y2="${y}" stroke="rgba(148,163,184,0.14)" stroke-dasharray="${i === 0 ? 'none' : '3,3'}" />
-      <text x="${padL - 8}" y="${Number(y) + 4}" text-anchor="end" fill="#94a3b8" font-size="11">${v}</text>
+      <text x="${padL - 8}" y="${Number(y) + 4}" text-anchor="end" fill="#94a3b8" font-size="11">${yLbl}</text>
     `;
   }
 
@@ -446,7 +521,7 @@ function renderTrendChart() {
   let defsHtml = "";
   let pathsHtml = "";
   activeKeys.forEach((k, sIdx) => {
-    const vals = series[k] || [];
+    const vals = buckets.map((_b, idx) => valAt(k, idx));
     const color = WORK_TYPE_COLORS[k] || "#60a5fa";
     const pts = vals.map((v, idx) => `${xAt(idx).toFixed(1)},${yAt(v).toFixed(1)}`);
     const gradId = `trendGrad_${sIdx}`;
@@ -509,20 +584,26 @@ function onTrendChartHover(evt) {
   }
 
   const activeKeys = [...activeWorkTypes].filter(k => k !== "All Demand" && Array.isArray(trendData.series[k]));
+  const allDemandAtIdx = ((trendData.series["All Demand"] || [])[idx]) || 0;
+  const isShare = currentTrendMode === "share";
   const rows = activeKeys
-    .map(k => ({ key: k, val: (trendData.series[k] || [])[idx] || 0, color: WORK_TYPE_COLORS[k] || "#60a5fa" }))
-    .sort((a, b) => b.val - a.val);
-  const bucketTotal = rows.reduce((s, r) => s + r.val, 0);
+    .map(k => {
+      const raw = (trendData.series[k] || [])[idx] || 0;
+      const pct = allDemandAtIdx > 0 ? Math.round((raw / allDemandAtIdx) * 1000) / 10 : 0;
+      return { key: k, raw, pct, sortVal: isShare ? pct : raw, color: WORK_TYPE_COLORS[k] || "#60a5fa" };
+    })
+    .sort((a, b) => b.sortVal - a.sortVal);
+  const bucketTotal = rows.reduce((s, r) => s + r.raw, 0);
 
   tooltip.innerHTML = `
-    <div class="trend-tooltip-title">${esc(bucket.label)} &middot; ${bucketTotal} total</div>
+    <div class="trend-tooltip-title">${esc(bucket.label)} &middot; ${bucketTotal} posts</div>
     ${rows.map(r => `
       <div class="trend-tooltip-row">
         <span style="display:inline-flex;align-items:center;gap:6px;">
           <span class="work-pill-dot" style="background:${r.color}"></span>
           <span>${esc(r.key)}</span>
         </span>
-        <strong>${r.val}</strong>
+        <strong>${isShare ? `${r.pct}% (${r.raw})` : r.raw}</strong>
       </div>
     `).join("")}
   `;
@@ -563,6 +644,132 @@ function renderKPIs(kpis) {
   document.getElementById("kpi-diy").textContent = kpis.diy_conversion_leads || 0;
   document.getElementById("kpi-supply").textContent = kpis.competitor_supply_ads || 0;
   document.getElementById("kpi-jobs").textContent = kpis.job_postings || 0;
+}
+
+function onPricingTradeSelect(trade) {
+  selectedPricingTrade = trade || "all";
+  const sel = document.getElementById("pricing-trade-select");
+  if (sel && sel.value !== selectedPricingTrade) sel.value = selectedPricingTrade;
+  renderPricingAndTaskBreakdown();
+}
+
+function renderPricingAndTaskBreakdown() {
+  const container = document.getElementById("pricing-task-chart");
+  if (!container || !summaryData) return;
+
+  const subList = summaryData.sub_service_breakdown || [];
+  const priceByCat = summaryData.pricing_by_category || [];
+  const catList = summaryData.category_breakdown || [];
+
+  const fmtHr = r => {
+    if (!r || !r.avg_hourly) return `<span style="color:var(--muted);">—</span>`;
+    const range = r.min_hourly && r.max_hourly && r.min_hourly !== r.max_hourly
+      ? `<span class="price-range-sub">($${r.min_hourly}–$${r.max_hourly}/hr · ${r.hourly_count})</span>`
+      : `<span class="price-range-sub">(${r.hourly_count} post${r.hourly_count > 1 ? "s" : ""})</span>`;
+    return `<span class="price-pill">$${r.avg_hourly}/hr avg</span>${range}`;
+  };
+
+  const fmtFlat = r => {
+    if (!r || !r.avg_flat) return `<span style="color:var(--muted);">—</span>`;
+    const range = r.min_flat && r.max_flat && r.min_flat !== r.max_flat
+      ? `<span class="price-range-sub">($${r.min_flat}–$${r.max_flat} · ${r.flat_count})</span>`
+      : `<span class="price-range-sub">(${r.flat_count} post${r.flat_count > 1 ? "s" : ""})</span>`;
+    return `<span class="price-pill price-pill-flat">$${r.avg_flat} avg</span>${range}`;
+  };
+
+  if (selectedPricingTrade === "all") {
+    const priceLookup = {};
+    priceByCat.forEach(p => { priceLookup[p.primary_category] = p; });
+    const tasksByCat = {};
+    subList.forEach(s => {
+      if (!tasksByCat[s.primary_category]) tasksByCat[s.primary_category] = [];
+      tasksByCat[s.primary_category].push(s);
+    });
+
+    const rowsHtml = catList.map(c => {
+      const cat = c.primary_category;
+      const pr = priceLookup[cat] || {};
+      const topTasks = (tasksByCat[cat] || []).slice(0, 3).map(t => `${esc(t.sub_service)} (${t.total_demand})`).join(" · ");
+      return `
+        <tr data-cat="${esc(cat)}" onclick="onPricingTradeSelect(this.dataset.cat)" title="Click to drill into Specific Tasks for ${esc(cat)}">
+          <td>
+            <div style="font-weight:600;color:var(--text);">${esc(cat)}</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">Top Tasks: ${topTasks || "General"}</div>
+          </td>
+          <td>
+            <span style="color:#34d399;font-weight:600;">${c.hiring_count || 0} Hiring</span> &middot;
+            <span style="color:#fbbf24;">${c.diy_count || 0} DIY</span> &middot;
+            <span style="color:#c084fc;">${c.provider_supply || 0} Supply</span>
+          </td>
+          <td>${fmtHr(pr)}</td>
+          <td>${fmtFlat(pr)}</td>
+          <td style="text-align:right;">
+            <button class="secondary" style="padding:4px 10px;font-size:0.76rem;">View Tasks</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th>Trade Category &amp; Top Specific Tasks</th>
+              <th>Demand &amp; Supply Volume</th>
+              <th>Hourly Rate Benchmark ($/hr)</th>
+              <th>Flat Job Budget Benchmark ($)</th>
+              <th style="text-align:right;">Drill-Down</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    const tasks = subList.filter(s => s.primary_category === selectedPricingTrade);
+    const rowsHtml = tasks.map(t => `
+      <tr data-cat="${esc(t.primary_category)}" data-sub="${esc(t.sub_service)}" onclick="filterBySubService(this.dataset.cat, this.dataset.sub)" title="Click to filter leads table to this Specific Task">
+        <td>
+          <div style="font-weight:600;color:#93c5fd;">${esc(t.sub_service)}</div>
+          <div style="font-size:0.74rem;color:var(--muted);">${esc(t.primary_category)}</div>
+        </td>
+        <td>
+          <span style="color:#34d399;font-weight:600;">${t.hiring_count || 0} Hiring</span> &middot;
+          <span style="color:#fbbf24;">${t.diy_count || 0} DIY</span> &middot;
+          <span style="color:#c084fc;">${t.provider_supply || 0} Supply</span>
+        </td>
+        <td>${fmtHr(t)}</td>
+        <td>${fmtFlat(t)}</td>
+        <td style="text-align:right;">
+          <button class="secondary" style="padding:4px 10px;font-size:0.76rem;">Filter Posts</button>
+        </td>
+      </tr>
+    `).join("");
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:0.84rem;color:var(--text-secondary);">
+          Showing Specific Tasks within <strong>${esc(selectedPricingTrade)}</strong> (click any task row to filter posts below)
+        </div>
+        <button class="secondary" style="padding:5px 11px;font-size:0.78rem;" onclick="onPricingTradeSelect('all')">Back to All Trade Categories</button>
+      </div>
+      <div class="table-wrap">
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th>Specific Task (Service)</th>
+              <th>Demand &amp; Supply Volume</th>
+              <th>Hourly Rate ($/hr)</th>
+              <th>Flat Job Price ($)</th>
+              <th style="text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml || `<tr><td colspan="5" style="text-align:center;color:var(--muted);">No tasks found for this trade.</td></tr>`}</tbody>
+        </table>
+      </div>
+    `;
+  }
 }
 
 function renderCategoryBars(cats) {
@@ -635,11 +842,44 @@ function renderRegionBars(regions, channels) {
 function populateFilterDropdowns(sumRes) {
   const catSel = document.getElementById("filter-category");
   const currentCat = catSel.value || "all";
-  catSel.innerHTML = `<option value="all">All Types of Work</option>` +
-    (sumRes.categories_list || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  const cats = sumRes.categories_list || [];
+  catSel.innerHTML = `<option value="all">All Trade Categories</option>` +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   catSel.value = currentCat;
 
+  const pSel = document.getElementById("pricing-trade-select");
+  if (pSel) {
+    pSel.innerHTML = `<option value="all">All Trade Categories (Overview)</option>` +
+      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    pSel.value = selectedPricingTrade;
+  }
+
+  updateSubServiceOptions();
   updateProvinceAndCityOptions();
+}
+
+function updateSubServiceOptions() {
+  const subSel = document.getElementById("filter-sub-service");
+  if (!subSel) return;
+  const cat = document.getElementById("filter-category").value || "all";
+  const prevSub = subSel.value || "all";
+  const subMap = (summaryData && summaryData.sub_services_map) ? summaryData.sub_services_map : {};
+
+  let tasks = [];
+  if (cat !== "all" && Array.isArray(subMap[cat])) {
+    tasks = subMap[cat];
+  } else {
+    Object.values(subMap).forEach(arr => {
+      (arr || []).forEach(t => {
+        if (!tasks.includes(t)) tasks.push(t);
+      });
+    });
+  }
+
+  const label = cat !== "all" ? `All Tasks in ${cat}` : "All Specific Tasks";
+  subSel.innerHTML = `<option value="all">${esc(label)}</option>` +
+    tasks.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  subSel.value = tasks.includes(prevSub) ? prevSub : "all";
 }
 
 function updateProvinceAndCityOptions() {
@@ -700,21 +940,40 @@ async function onCityChange() {
 
 function onCategoryDropdownChange() {
   const cat = document.getElementById("filter-category").value;
+  const subSel = document.getElementById("filter-sub-service");
+  if (subSel) subSel.value = "all";
+  updateSubServiceOptions();
   if (cat && cat !== "all") {
     activeWorkTypes.add(cat);
     renderTrendPills();
     renderTrendChart();
+    onPricingTradeSelect(cat);
+  } else {
+    onPricingTradeSelect("all");
   }
   loadPosts();
 }
 
 function filterByCategory(cat) {
   document.getElementById("filter-category").value = cat;
+  const subSel = document.getElementById("filter-sub-service");
+  if (subSel) subSel.value = "all";
+  updateSubServiceOptions();
   if (cat && cat !== "all") {
     activeWorkTypes.add(cat);
     renderTrendPills();
     renderTrendChart();
+    onPricingTradeSelect(cat);
   }
+  switchTab("leads");
+  loadPosts();
+}
+
+function filterBySubService(cat, sub) {
+  document.getElementById("filter-category").value = cat;
+  updateSubServiceOptions();
+  const subSel = document.getElementById("filter-sub-service");
+  if (subSel) subSel.value = sub;
   switchTab("leads");
   loadPosts();
 }
@@ -735,10 +994,12 @@ async function filterByRegion(reg) {
 }
 
 function getFilterQueryString() {
+  const subSel = document.getElementById("filter-sub-service");
   const params = new URLSearchParams({
     platform: document.getElementById("filter-platform").value,
     intent_type: document.getElementById("filter-intent").value,
     category: document.getElementById("filter-category").value,
+    sub_service: subSel ? subSel.value : "all",
     country: document.getElementById("filter-country").value,
     province: document.getElementById("filter-province").value,
     city_region: document.getElementById("filter-region").value,
@@ -756,6 +1017,8 @@ async function loadPosts() {
     const plat = document.getElementById("filter-platform").value;
     const intent = document.getElementById("filter-intent").value;
     const cat = document.getElementById("filter-category").value;
+    const subSel = document.getElementById("filter-sub-service");
+    const sub = subSel ? subSel.value : "all";
     const country = document.getElementById("filter-country").value;
     const prov = document.getElementById("filter-province").value;
     const city = document.getElementById("filter-region").value;
@@ -768,6 +1031,7 @@ async function loadPosts() {
         if (p.intent_type !== "customer_hiring" && p.intent_type !== "diy_help_needed") return false;
       } else if (intent !== "all" && p.intent_type !== intent) return false;
       if (cat !== "all" && p.primary_category !== cat) return false;
+      if (sub !== "all" && p.sub_service !== sub) return false;
       if (country !== "all" && p.country !== country) return false;
       if (prov !== "all" && p.province !== prov) return false;
       if (city !== "all" && p.city_region !== city) return false;
@@ -817,13 +1081,19 @@ async function resetFilters() {
   document.getElementById("filter-intent").value = "demand_only";
   document.getElementById("filter-platform").value = "all";
   document.getElementById("filter-category").value = "all";
+  const subSel = document.getElementById("filter-sub-service");
+  if (subSel) subSel.value = "all";
   document.getElementById("filter-country").value = "all";
   document.getElementById("filter-province").value = "all";
   document.getElementById("filter-region").value = "all";
   document.getElementById("filter-urgency").value = "all";
   document.getElementById("filter-sort").value = "relevance";
   document.getElementById("filter-search").value = "";
+  selectedPricingTrade = "all";
+  const pSel = document.getElementById("pricing-trade-select");
+  if (pSel) pSel.value = "all";
   syncActiveKpiCard("demand_only");
+  updateSubServiceOptions();
   updateProvinceAndCityOptions();
   await refreshSummaryForGeo();
   await loadPosts();
@@ -895,8 +1165,9 @@ function renderPostsPage() {
           ${bodySnippet ? `<div class="post-body">${esc(bodySnippet)}</div>` : ""}
         </td>
         <td>
-          <span class="badge b-cat">${esc(p.primary_category)}</span>
-          ${p.price_mention ? `<div style="color:#34d399;font-size:0.78rem;margin-top:6px;font-weight:500;">${esc(p.price_mention)}</div>` : ""}
+          <div><span class="badge b-cat">${esc(p.primary_category)}</span></div>
+          ${p.sub_service ? `<div><span class="badge b-subtask">${esc(p.sub_service)}</span></div>` : ""}
+          ${p.price_mention ? `<div style="color:#34d399;font-size:0.78rem;margin-top:6px;font-weight:600;">${esc(p.price_mention)}</div>` : ""}
         </td>
         <td>
           ${intentBadge}

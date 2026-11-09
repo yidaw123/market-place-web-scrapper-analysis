@@ -217,10 +217,150 @@ URGENCY_HIGH_WORDS = [
 
 
 def extract_price_mention(text: str) -> str:
-    matches = re.findall(r"\$\s?\d[\d,]*(?:\.\d{2})?(?:\s?(?:/\s?hr|per hour|flat|obo))?", text, flags=re.IGNORECASE)
-    if matches:
-        return ", ".join(matches[:2])
+    matches = re.findall(r"\$\s?\d[\d,]*(?:\.\d{2})?(?:\s?(?:/\s?hr|per hour|an hour|/hour|flat|obo))?", text, flags=re.IGNORECASE)
+    # Filter out "$1" or "$0" dummy Craigslist placeholder prices if a real price exists
+    valid = [m.strip() for m in matches if not re.match(r"^\$\s*[01](?:\.00)?$", m.strip())]
+    if valid:
+        return ", ".join(valid[:2])
     return ""
+
+
+SUB_SERVICES: Dict[str, List[Tuple[str, List[str]]]] = {
+    "Plumbing & Drain": [
+        ("Drain Cleaning & Unclogging", ["drain", "clog", "clogged", "sewer", "snake", "plunger", "p-trap", "ptrap", "slow drain"]),
+        ("Faucet, Sink & Disposal", ["faucet", "sink", "garbage disposal", "disposal", "spigot", "hose bib", "under sink"]),
+        ("Toilet & Bidet Repair", ["toilet", "bidet", "flapper", "fill valve", "wax ring", "flush", "tank"]),
+        ("Shower, Tub & Water Heater", ["shower", "shower head", "showerhead", "tub", "bathtub", "water heater", "sump pump"]),
+        ("Pipe Leak & Valve Repair", ["leak", "leaking", "leaky", "pipe", "valve", "shutoff", "water line", "water pressure", "septic"]),
+    ],
+    "Electrical & Lighting": [
+        ("Light Fixture & Chandelier Install", ["light fixture", "chandelier", "recessed light", "pot light", "sconce", "floodlight", "lighting"]),
+        ("Ceiling & Exhaust Fan Install", ["ceiling fan", "exhaust fan", "bath fan", "fan"]),
+        ("Outlet, Switch & Dimmer Repair", ["outlet", "switch", "light switch", "dimmer", "gfci", "receptacle", "plug"]),
+        ("EV Charger & Smart Home Wiring", ["ev charger", "doorbell", "ethernet", "thermostat wire", "smoke detector", "camera"]),
+        ("Breaker Panel & Circuit Wiring", ["breaker", "panel", "subpanel", "wiring", "wire", "rewire", "sparking", "circuit", "voltage", "conduit"]),
+    ],
+    "Yardwork & Landscaping": [
+        ("Lawn Mowing & Yard Cleanup", ["lawn", "mowing", "mower", "yardwork", "yard work", "yard cleanup", "leaf removal", "leaves", "overgrown", "brush clearing"]),
+        ("Weeding, Mulch & Garden Beds", ["weeding", "weeds", "mulch", "garden", "gardening", "gardener", "soil", "compost", "planting"]),
+        ("Tree, Hedge & Shrub Trimming", ["tree trimming", "tree removal", "pruning", "hedge", "stump", "branches"]),
+        ("Patio, Sod, Grading & Irrigation", ["patio", "paver", "sod", "sprinkler", "irrigation", "retaining wall", "grading", "drainage", "digging"]),
+        ("Snow Removal & Winterizing", ["snow removal", "shoveling", "snow", "ice"]),
+    ],
+    "Painting & Drywall": [
+        ("Drywall Patching & Wall Repair", ["drywall", "sheetrock", "patch hole", "patching", "spackle", "wall repair", "mudding", "joint compound", "skim coat"]),
+        ("Interior Room & Wall Painting", ["painter", "painting", "repaint", "paint", "touch up paint", "primer", "baseboard paint"]),
+        ("Ceiling & Plaster Repair", ["popcorn ceiling", "ceiling crack", "ceiling repair", "plaster", "texture"]),
+        ("Wood Staining & Wallpaper", ["wallpaper", "staining", "stain"]),
+    ],
+    "Carpentry, Doors & Windows": [
+        ("Fence & Gate Repair", ["fence", "fencing", "gate", "post"]),
+        ("Deck, Porch & Railing Repair", ["deck", "deck repair", "porch", "railing", "handrail", "stairs", "stair", "pergola", "shed", "rot", "rotten"]),
+        ("Door, Lock & Hinge Repair", ["door", "sliding door", "screen door", "pocket door", "closet door", "doorknob", "deadbolt", "lockset", "lock", "latch", "hinge", "weatherstripping"]),
+        ("Window, Trim & Baseboard", ["window", "windowpane", "sill", "trim", "molding", "moulding", "baseboard", "crown molding", "caulk", "caulking"]),
+        ("Cabinetry, Framing & Woodwork", ["cabinet", "cabinetry", "drawer", "framing", "stud", "joist", "beam", "subfloor", "carpenter", "carpentry", "woodworking"]),
+    ],
+    "Mounting & Furniture Assembly": [
+        ("TV Wall Mounting", ["mount tv", "tv mounting", "tv mount", "hang tv", "wall mount"]),
+        ("IKEA & Furniture Assembly", ["ikea", "wayfair", "furniture assembly", "furniture", "dresser", "bed frame", "desk assembly", "bookshelf", "assemble", "assembly"]),
+        ("Shelves, Mirror & Art Hanging", ["hang shelves", "shelving", "shelf", "shelves", "hang mirror", "hang picture", "hang art", "anchor", "toggle bolt"]),
+        ("Curtain Rods, Blinds & Shades", ["curtain rod", "curtain", "blinds", "shades"]),
+        ("Shed, Gazebo & Outdoor Assembly", ["gazebo assembly", "shed assembly", "trampoline", "playset"]),
+    ],
+    "Roofing, Siding & Gutters": [
+        ("Gutter Cleaning & Downspouts", ["gutter", "gutters", "eavestrough", "downspout"]),
+        ("Roof, Shingle & Skylight Repair", ["roof", "roofer", "roofing", "shingle", "flashing", "roof vent", "skylight", "attic", "moss"]),
+        ("Siding, Stucco & Fascia Repair", ["siding", "vinyl siding", "stucco", "fascia", "soffit"]),
+        ("Masonry, Chimney & Pressure Wash", ["brick", "masonry", "mortar", "tuckpointing", "chimney", "power wash", "pressure wash"]),
+    ],
+    "Flooring & Tile": [
+        ("Tile, Grout & Backsplash", ["tile", "tiling", "tiler", "grout", "regrout", "backsplash", "cracked tile", "shower tile", "mosaic", "caulking tub"]),
+        ("Hardwood, Laminate & LVP Flooring", ["hardwood", "laminate", "lvp", "vinyl plank", "flooring", "floor", "linoleum", "transition strip"]),
+        ("Carpet, Stone & Countertops", ["carpet", "rug", "marble", "granite", "quartz", "countertop"]),
+    ],
+    "Appliance & HVAC Repair": [
+        ("Washer & Dryer Repair", ["washer", "washing machine", "dryer", "dryer vent"]),
+        ("Dishwasher & Kitchen Appliances", ["dishwasher", "fridge", "refrigerator", "freezer", "ice maker", "water filter"]),
+        ("Oven, Stove & Microwave Repair", ["oven", "stove", "cooktop", "range hood", "microwave", "appliance"]),
+        ("AC, Furnace & Thermostat (HVAC)", ["hvac", "furnace", "boiler", "heater", "heating", "ac unit", "air conditioner", "air conditioning", "heat pump", "mini split", "thermostat", "ductwork", "duct", "vent"]),
+    ],
+    "General Handyman & Odd Jobs": [
+        ("Punch List & Multi-Task Repairs", ["punch list", "honey do", "odd jobs", "home repair", "handyman", "handy man"]),
+        ("Rental Turnover & Maintenance", ["move out repair", "airbnb", "short-term rental", "property maintenance", "maintenance"]),
+        ("Moving, Hauling & Demolition", ["junk removal", "hauling", "moving help", "heavy lifting", "demolition"]),
+    ],
+}
+
+
+def detect_sub_service(primary_category: str, title: str, combined: str) -> str:
+    tasks = SUB_SERVICES.get(primary_category, [])
+    best_task = ""
+    best_score = 0
+    title_low = title.lower()
+    for task_name, kws in tasks:
+        score = 0
+        for kw in kws:
+            pat = r"\b" + re.escape(kw) + r"(?:s|es)?\b"
+            if re.search(pat, title_low):
+                score += 3
+            elif re.search(pat, combined):
+                score += 1
+        if score > best_score:
+            best_score = score
+            best_task = task_name
+    if best_task:
+        return best_task
+    return tasks[0][0] if tasks else "General Service"
+
+
+def parse_price_details(price_mention: str, full_text: str) -> Tuple[float, str]:
+    """
+    Returns (price_value, price_type) where price_type is 'hourly', 'flat', or ''.
+    Filters out $0/$1 placeholder prices and unrealistic outliers.
+    """
+    text_to_scan = f"{price_mention} {full_text}"
+    # 1. Check explicit hourly rate first (e.g., "$35/hr", "$40 per hour", "$25 - $35/hr")
+    hr_match = re.search(
+        r"\$\s?(\d{2,3}(?:\.\d{2})?)\s?(?:-\s?\$?\s?(\d{2,3}(?:\.\d{2})?))?\s?(?:/\s?h(?:ou)?r|per\s+h(?:ou)?r|an\s+h(?:ou)?r|hr\b)",
+        text_to_scan,
+        flags=re.IGNORECASE,
+    )
+    if hr_match:
+        v1 = float(hr_match.group(1))
+        v2 = float(hr_match.group(2)) if hr_match.group(2) else v1
+        avg_hr = round((v1 + v2) / 2.0, 2)
+        if 15.0 <= avg_hr <= 250.0:
+            return avg_hr, "hourly"
+
+    if not price_mention:
+        return 0.0, ""
+
+    # 2. Parse numbers from price_mention
+    raw_nums = re.findall(r"\$\s?(\d[\d,]*(?:\.\d{2})?)", price_mention)
+    vals = []
+    for n in raw_nums:
+        try:
+            v = float(n.replace(",", ""))
+            if v > 1.0:
+                vals.append(v)
+        except ValueError:
+            pass
+    if not vals:
+        return 0.0, ""
+
+    val = vals[0]
+    # If price_mention or nearby text indicates hourly and value is in hourly range (15..200)
+    if (
+        re.search(r"(/hr|per hour|an hour|hourly|\bhr\b)", price_mention, re.IGNORECASE)
+        or (15.0 <= val <= 95.0 and re.search(r"\b(per hour|an hour|/hr|hourly rate)\b", full_text, re.IGNORECASE))
+    ):
+        if 15.0 <= val <= 250.0:
+            return round(val, 2), "hourly"
+
+    # Flat job price range ($25 to $8,000)
+    if 25.0 <= val <= 8000.0:
+        return round(val, 2), "flat"
+    return 0.0, ""
 
 
 # Pre-compile whole-word regexes for every keyword so "rot" doesn't match "front",
@@ -365,14 +505,21 @@ def classify_post_rules(post: Dict[str, Any]) -> Dict[str, Any]:
     else:
         pain_point = "General discussion"
 
-    price_mention = post.get("price_mention") or extract_price_mention(f"{title} {body}")
+    price_mention = extract_price_mention(f"{title} {body}") or post.get("price_mention") or ""
+    if re.match(r"^\$\s*[01](?:\.00)?$", str(price_mention).strip()):
+        price_mention = ""
+    price_value, price_type = parse_price_details(price_mention, f"{title} {body}")
+    sub_service = detect_sub_service(primary_category, title, combined)
 
     return {
         **post,
         "price_mention": price_mention,
+        "price_value": price_value,
+        "price_type": price_type,
         "intent_type": intent_type,
         "intent_score": int(intent_score),
         "primary_category": primary_category,
+        "sub_service": sub_service,
         "secondary_categories": secondary_categories,
         "urgency": urgency,
         "diy_difficulty": diy_difficulty,

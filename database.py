@@ -320,13 +320,19 @@ def init_db() -> None:
         """
     )
 
-    # Schema migration for existing DBs: add country and province columns if missing
+    # Schema migration for existing DBs: add country, province, sub_service, price_value, price_type columns if missing
     cur.execute("PRAGMA table_info(posts)")
     existing_cols = {row["name"] for row in cur.fetchall()}
     if "country" not in existing_cols:
         cur.execute("ALTER TABLE posts ADD COLUMN country TEXT DEFAULT 'National'")
     if "province" not in existing_cols:
         cur.execute("ALTER TABLE posts ADD COLUMN province TEXT DEFAULT ''")
+    if "sub_service" not in existing_cols:
+        cur.execute("ALTER TABLE posts ADD COLUMN sub_service TEXT DEFAULT ''")
+    if "price_value" not in existing_cols:
+        cur.execute("ALTER TABLE posts ADD COLUMN price_value REAL DEFAULT 0")
+    if "price_type" not in existing_cols:
+        cur.execute("ALTER TABLE posts ADD COLUMN price_type TEXT DEFAULT ''")
 
     # Seed or upgrade regions setting so new Canadian provinces/cities are always present
     cur.execute("SELECT value FROM settings WHERE key = 'regions'")
@@ -493,13 +499,16 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
                 intent_type = ?,
                 intent_score = ?,
                 primary_category = ?,
+                sub_service = ?,
                 secondary_categories = ?,
                 urgency = ?,
                 diy_difficulty = ?,
                 extracted_pain_point = ?,
                 marketing_angle = ?,
                 classified_by = ?,
-                price_mention = ?
+                price_mention = ?,
+                price_value = ?,
+                price_type = ?
             WHERE external_id = ?
             """,
             (
@@ -508,7 +517,8 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
                 post.get("city_region", "National / Online"),
                 post.get("intent_type", "diy_help_needed"),
                 post.get("intent_score", 50),
-                post.get("primary_category", "General Handyman"),
+                post.get("primary_category", "General Handyman & Odd Jobs"),
+                post.get("sub_service", ""),
                 secondary_json,
                 post.get("urgency", "medium"),
                 post.get("diy_difficulty", "moderate"),
@@ -516,6 +526,8 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
                 post.get("marketing_angle", ""),
                 post.get("classified_by", "hybrid_rules"),
                 post.get("price_mention", ""),
+                float(post.get("price_value") or 0.0),
+                post.get("price_type", ""),
                 post["external_id"],
             ),
         )
@@ -527,11 +539,11 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
             """
             INSERT INTO posts (
                 external_id, platform, source_detail, country, province, city_region, neighborhood,
-                title, body, url, author, price_mention, posted_at, scraped_at,
-                intent_type, intent_score, primary_category, secondary_categories,
+                title, body, url, author, price_mention, price_value, price_type, posted_at, scraped_at,
+                intent_type, intent_score, primary_category, sub_service, secondary_categories,
                 urgency, diy_difficulty, extracted_pain_point, marketing_angle,
                 classified_by, score, num_comments
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 post["external_id"],
@@ -546,11 +558,14 @@ def upsert_post(post: Dict[str, Any], force: bool = False) -> bool:
                 post["url"],
                 post.get("author", "anonymous"),
                 post.get("price_mention", ""),
+                float(post.get("price_value") or 0.0),
+                post.get("price_type", ""),
                 post.get("posted_at", now_iso),
                 now_iso,
                 post.get("intent_type", "diy_help_needed"),
                 post.get("intent_score", 50),
-                post.get("primary_category", "General Handyman"),
+                post.get("primary_category", "General Handyman & Odd Jobs"),
+                post.get("sub_service", ""),
                 secondary_json,
                 post.get("urgency", "medium"),
                 post.get("diy_difficulty", "moderate"),
@@ -570,6 +585,7 @@ def query_posts(
     platform: Optional[str] = None,
     intent_type: Optional[str] = None,
     category: Optional[str] = None,
+    sub_service: Optional[str] = None,
     country: Optional[str] = None,
     province: Optional[str] = None,
     city_region: Optional[str] = None,
@@ -598,6 +614,10 @@ def query_posts(
     if category and category != "all":
         clauses.append("primary_category = ?")
         params.append(category)
+
+    if sub_service and sub_service != "all":
+        clauses.append("sub_service = ?")
+        params.append(sub_service)
 
     if country and country != "all":
         clauses.append("country = ?")
@@ -759,6 +779,54 @@ def get_analytics_summary(
     cur.execute("SELECT * FROM scrape_runs ORDER BY id DESC LIMIT 5")
     recent_runs = [dict(r) for r in cur.fetchall()]
 
+    # Sub-service (Specific Task) & Pricing breakdown
+    cur.execute(
+        f"""
+        SELECT
+            primary_category,
+            sub_service,
+            SUM(CASE WHEN intent_type = 'customer_hiring' THEN 1 ELSE 0 END) as hiring_count,
+            SUM(CASE WHEN intent_type = 'diy_help_needed' THEN 1 ELSE 0 END) as diy_count,
+            SUM(CASE WHEN intent_type IN ('customer_hiring', 'diy_help_needed') THEN 1 ELSE 0 END) as total_demand,
+            SUM(CASE WHEN intent_type = 'service_provider_ad' THEN 1 ELSE 0 END) as provider_supply,
+            COUNT(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN 1 END) as hourly_count,
+            ROUND(AVG(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as avg_hourly,
+            ROUND(MIN(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as min_hourly,
+            ROUND(MAX(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as max_hourly,
+            COUNT(CASE WHEN price_type = 'flat' AND price_value > 0 THEN 1 END) as flat_count,
+            ROUND(AVG(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as avg_flat,
+            ROUND(MIN(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as min_flat,
+            ROUND(MAX(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as max_flat
+        FROM posts
+        {where_not_irr}
+        GROUP BY primary_category, sub_service
+        ORDER BY total_demand DESC, hiring_count DESC
+        """,
+        geo_params,
+    )
+    sub_service_breakdown = [dict(r) for r in cur.fetchall()]
+
+    cur.execute(
+        f"""
+        SELECT
+            primary_category,
+            COUNT(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN 1 END) as hourly_count,
+            ROUND(AVG(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as avg_hourly,
+            ROUND(MIN(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as min_hourly,
+            ROUND(MAX(CASE WHEN price_type = 'hourly' AND price_value > 0 THEN price_value END), 0) as max_hourly,
+            COUNT(CASE WHEN price_type = 'flat' AND price_value > 0 THEN 1 END) as flat_count,
+            ROUND(AVG(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as avg_flat,
+            ROUND(MIN(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as min_flat,
+            ROUND(MAX(CASE WHEN price_type = 'flat' AND price_value > 0 THEN price_value END), 0) as max_flat
+        FROM posts
+        {where_not_irr}
+        GROUP BY primary_category
+        ORDER BY (hourly_count + flat_count) DESC
+        """,
+        geo_params,
+    )
+    pricing_by_category = [dict(r) for r in cur.fetchall()]
+
     conn.close()
 
     total_hiring = intent_counts.get("customer_hiring", 0)
@@ -777,6 +845,8 @@ def get_analytics_summary(
             "job_postings": total_jobs,
         },
         "category_breakdown": category_breakdown,
+        "sub_service_breakdown": sub_service_breakdown,
+        "pricing_by_category": pricing_by_category,
         "region_breakdown": region_breakdown,
         "platform_breakdown": platform_breakdown,
         "top_channels": top_channels,
@@ -789,18 +859,26 @@ def get_demand_trends(
     country: Optional[str] = None,
     province: Optional[str] = None,
     city_region: Optional[str] = None,
+    intent_type: Optional[str] = None,
     categories_list: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Returns stock-market style time-series and seasonality demand data broken down
-    by work category (customer_hiring + diy_help_needed).
+    by work category.
     Supported periods: '7D', '1M', '3M', '6M', '1Y', 'ALL', 'SEASONALITY'
     """
     conn = get_connection()
     cur = conn.cursor()
 
-    clauses = ["intent_type IN ('customer_hiring', 'diy_help_needed')"]
+    clauses: List[str] = []
     params: List[Any] = []
+    if not intent_type or intent_type == "demand_only":
+        clauses.append("intent_type IN ('customer_hiring', 'diy_help_needed')")
+    elif intent_type == "all":
+        clauses.append("intent_type != 'irrelevant'")
+    else:
+        clauses.append("intent_type = ?")
+        params.append(intent_type)
     if country and country != "all":
         clauses.append("country = ?")
         params.append(country)

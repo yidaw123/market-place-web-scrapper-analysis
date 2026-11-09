@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import shutil
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,11 +20,38 @@ from database import (
     DEFAULT_NATIONAL_SUBREDDITS,
     DEFAULT_SEARCH_KEYWORDS,
 )
-from classifier import SERVICE_CATEGORIES, classify_post_rules, enrich_posts_with_llm
+from classifier import SERVICE_CATEGORIES, SUB_SERVICES, classify_post_rules, enrich_posts_with_llm
 from pipeline import run_scrape_pipeline
 
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(ROOT_DIR, "static")
 SCRAPE_LOCK = threading.Lock()
+
+
+def export_static_snapshot() -> None:
+    """Writes static/snapshot.json and syncs root index.html for GitHub Pages hosting."""
+    try:
+        posts = query_posts(intent_type="all", limit=5000)
+        sub_map = {k: [t[0] for t in v] for k, v in SUB_SERVICES.items()}
+        snap = {
+            "categories_list": list(SERVICE_CATEGORIES.keys()),
+            "sub_services_map": sub_map,
+            "settings": {
+                "regions": get_setting("regions", DEFAULT_REGIONS),
+                "national_subreddits": get_setting("national_subreddits", DEFAULT_NATIONAL_SUBREDDITS),
+                "search_keywords": get_setting("search_keywords", DEFAULT_SEARCH_KEYWORDS),
+            },
+            "posts": posts,
+        }
+        snap_path = os.path.join(STATIC_DIR, "snapshot.json")
+        with open(snap_path, "w", encoding="utf-8") as f:
+            json.dump(snap, f)
+        src_idx = os.path.join(STATIC_DIR, "index.html")
+        dst_idx = os.path.join(ROOT_DIR, "index.html")
+        if os.path.exists(src_idx):
+            shutil.copyfile(src_idx, dst_idx)
+    except Exception:
+        pass
 
 
 def _qs_int(qs: Dict[str, List[str]], key: str, default: int, lo: int = 0, hi: int = 5000) -> int:
@@ -210,6 +238,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             summary["recommendations"] = build_marketing_recommendations(summary)
             summary["categories_list"] = list(SERVICE_CATEGORIES.keys())
+            summary["sub_services_map"] = {k: [t[0] for t in v] for k, v in SUB_SERVICES.items()}
             self._send_json(summary)
             return
 
@@ -219,6 +248,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 country=qs.get("country", ["all"])[0],
                 province=qs.get("province", ["all"])[0],
                 city_region=qs.get("city_region", ["all"])[0],
+                intent_type=qs.get("intent_type", ["demand_only"])[0],
                 categories_list=list(SERVICE_CATEGORIES.keys()),
             )
             self._send_json(trends)
@@ -229,6 +259,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 platform=qs.get("platform", ["all"])[0],
                 intent_type=qs.get("intent_type", ["demand_only"])[0],
                 category=qs.get("category", ["all"])[0],
+                sub_service=qs.get("sub_service", ["all"])[0],
                 country=qs.get("country", ["all"])[0],
                 province=qs.get("province", ["all"])[0],
                 city_region=qs.get("city_region", ["all"])[0],
@@ -245,6 +276,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 platform=qs.get("platform", ["all"])[0],
                 intent_type=qs.get("intent_type", ["all"])[0],
                 category=qs.get("category", ["all"])[0],
+                sub_service=qs.get("sub_service", ["all"])[0],
                 country=qs.get("country", ["all"])[0],
                 province=qs.get("province", ["all"])[0],
                 city_region=qs.get("city_region", ["all"])[0],
@@ -354,6 +386,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     include_national_reddit=include_national,
                     fetch_cl_details=True,
                 )
+                export_static_snapshot()
             finally:
                 SCRAPE_LOCK.release()
             self._send_json(result)
@@ -391,6 +424,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             reclassified = enrich_posts_with_llm(reclassified, llm_config=llm_cfg, max_batch=20)
             for p in reclassified:
                 upsert_post(p, force=True)
+            export_static_snapshot()
             self._send_json({"status": "reclassified", "count": len(reclassified)})
             return
 
@@ -441,6 +475,7 @@ if __name__ == "__main__":
     init_db()
     if args.scrape_only:
         res = run_scrape_pipeline()
+        export_static_snapshot()
         print(json.dumps(res, indent=2))
     else:
         run_server(port=args.port)
