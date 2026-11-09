@@ -85,16 +85,16 @@
       </div>
     </div>
 
-    <!-- Pricing & Specific Task Breakdown (2-Level Hierarchy: Trade Category -> Specific Task) -->
+    <!-- Pricing & Task Category Breakdown (2-Level Hierarchy: Trade Category -> Task Category) -->
     <div class="card" style="margin-bottom: 18px;">
       <div class="trend-header">
         <div class="trend-title-block">
-          <h2>Pricing Benchmarks &amp; Specific Task Breakdown</h2>
-          <p>Select a Trade Category to drill into Specific Tasks (e.g., Drain Cleaning vs. Faucet Repair) with extracted Hourly Rates ($/hr) and Flat Job Budgets ($)</p>
+          <h2>Pricing Benchmarks &amp; Task Category Breakdown</h2>
+          <p>Select a Trade Category to view its corresponding Task Categories, or select All Trade Categories to view all Task Categories</p>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           <select id="pricing-trade-select" class="page-size-select" style="padding:6px 12px;font-size:0.83rem;" onchange="onPricingTradeSelect(this.value)">
-            <option value="all">All Trade Categories (Overview)</option>
+            <option value="all">All Trade Categories (Show All Task Categories)</option>
           </select>
         </div>
       </div>
@@ -162,9 +162,9 @@
             </select>
           </div>
           <div class="field">
-            <label for="filter-sub-service">Specific Task</label>
+            <label for="filter-sub-service">Task Category</label>
             <select id="filter-sub-service" onchange="loadPosts()">
-              <option value="all">All Specific Tasks</option>
+              <option value="all">All Task Categories</option>
             </select>
           </div>
         </div>
@@ -225,7 +225,7 @@
             <thead>
               <tr>
                 <th>Post</th>
-                <th style="width:225px;">Trade &amp; Specific Task</th>
+                <th style="width:225px;">Trade &amp; Task Category</th>
                 <th style="width:140px;">Type</th>
                 <th style="width:210px;">Location &amp; Source</th>
                 <th style="width:90px;text-align:right;">Action</th>
@@ -280,6 +280,6 @@
     </div>
   </div>
 
-  <script src="./static/app.js?v=12"></script>
+  <script src="./static/app.js?v=13"></script>
 </body>
 </html>

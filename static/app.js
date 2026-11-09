@@ -650,6 +650,14 @@ function onPricingTradeSelect(trade) {
   selectedPricingTrade = trade || "all";
   const sel = document.getElementById("pricing-trade-select");
   if (sel && sel.value !== selectedPricingTrade) sel.value = selectedPricingTrade;
+  const catSel = document.getElementById("filter-category");
+  if (catSel && catSel.value !== selectedPricingTrade) {
+    catSel.value = selectedPricingTrade;
+    const subSel = document.getElementById("filter-sub-service");
+    if (subSel) subSel.value = "all";
+    updateSubServiceOptions();
+    loadPosts();
+  }
   renderPricingAndTaskBreakdown();
 }
 
@@ -658,8 +666,40 @@ function renderPricingAndTaskBreakdown() {
   if (!container || !summaryData) return;
 
   const subList = summaryData.sub_service_breakdown || [];
-  const priceByCat = summaryData.pricing_by_category || [];
-  const catList = summaryData.category_breakdown || [];
+  const subMap = summaryData.sub_services_map || {};
+
+  // Build complete Task Category list so every defined task category for a trade (or all trades) appears
+  const existingKeyMap = {};
+  subList.forEach(s => {
+    existingKeyMap[`${s.primary_category}||${s.sub_service}`] = s;
+  });
+
+  const allTaskRows = [...subList];
+  Object.entries(subMap).forEach(([cat, taskNames]) => {
+    (taskNames || []).forEach(taskName => {
+      const k = `${cat}||${taskName}`;
+      if (!existingKeyMap[k]) {
+        allTaskRows.push({
+          primary_category: cat,
+          sub_service: taskName,
+          total_demand: 0,
+          hiring_count: 0,
+          diy_count: 0,
+          provider_supply: 0,
+          hourly_count: 0,
+          avg_hourly: null,
+          min_hourly: null,
+          max_hourly: null,
+          flat_count: 0,
+          avg_flat: null,
+          min_flat: null,
+          max_flat: null,
+        });
+      }
+    });
+  });
+
+  allTaskRows.sort((a, b) => (b.total_demand || 0) - (a.total_demand || 0) || (b.provider_supply || 0) - (a.provider_supply || 0));
 
   const fmtHr = r => {
     if (!r || !r.avg_hourly) return `<span style="color:var(--muted);">—</span>`;
@@ -677,99 +717,55 @@ function renderPricingAndTaskBreakdown() {
     return `<span class="price-pill price-pill-flat">$${r.avg_flat} avg</span>${range}`;
   };
 
-  if (selectedPricingTrade === "all") {
-    const priceLookup = {};
-    priceByCat.forEach(p => { priceLookup[p.primary_category] = p; });
-    const tasksByCat = {};
-    subList.forEach(s => {
-      if (!tasksByCat[s.primary_category]) tasksByCat[s.primary_category] = [];
-      tasksByCat[s.primary_category].push(s);
-    });
+  const tasks = selectedPricingTrade === "all"
+    ? allTaskRows
+    : allTaskRows.filter(s => s.primary_category === selectedPricingTrade);
 
-    const rowsHtml = catList.map(c => {
-      const cat = c.primary_category;
-      const pr = priceLookup[cat] || {};
-      const topTasks = (tasksByCat[cat] || []).slice(0, 3).map(t => `${esc(t.sub_service)} (${t.total_demand})`).join(" · ");
-      return `
-        <tr data-cat="${esc(cat)}" onclick="onPricingTradeSelect(this.dataset.cat)" title="Click to drill into Specific Tasks for ${esc(cat)}">
-          <td>
-            <div style="font-weight:600;color:var(--text);">${esc(cat)}</div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">Top Tasks: ${topTasks || "General"}</div>
-          </td>
-          <td>
-            <span style="color:#34d399;font-weight:600;">${c.hiring_count || 0} Hiring</span> &middot;
-            <span style="color:#fbbf24;">${c.diy_count || 0} DIY</span> &middot;
-            <span style="color:#c084fc;">${c.provider_supply || 0} Supply</span>
-          </td>
-          <td>${fmtHr(pr)}</td>
-          <td>${fmtFlat(pr)}</td>
-          <td style="text-align:right;">
-            <button class="secondary" style="padding:4px 10px;font-size:0.76rem;">View Tasks</button>
-          </td>
-        </tr>
-      `;
-    }).join("");
+  const rowsHtml = tasks.map(t => `
+    <tr data-cat="${esc(t.primary_category)}" data-sub="${esc(t.sub_service)}" onclick="filterBySubService(this.dataset.cat, this.dataset.sub)" title="Click to filter leads table to this Task Category">
+      <td>
+        <div style="font-weight:600;color:#93c5fd;">${esc(t.sub_service)}</div>
+        <div style="font-size:0.74rem;color:var(--muted);">${esc(t.primary_category)}</div>
+      </td>
+      <td>
+        <span style="color:#34d399;font-weight:600;">${t.hiring_count || 0} Hiring</span> &middot;
+        <span style="color:#fbbf24;">${t.diy_count || 0} DIY</span> &middot;
+        <span style="color:#c084fc;">${t.provider_supply || 0} Supply</span>
+      </td>
+      <td>${fmtHr(t)}</td>
+      <td>${fmtFlat(t)}</td>
+      <td style="text-align:right;">
+        <button class="secondary" style="padding:4px 10px;font-size:0.76rem;">Filter Posts</button>
+      </td>
+    </tr>
+  `).join("");
 
-    container.innerHTML = `
-      <div class="table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th>Trade Category &amp; Top Specific Tasks</th>
-              <th>Demand &amp; Supply Volume</th>
-              <th>Hourly Rate Benchmark ($/hr)</th>
-              <th>Flat Job Budget Benchmark ($)</th>
-              <th style="text-align:right;">Drill-Down</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </div>
-    `;
-  } else {
-    const tasks = subList.filter(s => s.primary_category === selectedPricingTrade);
-    const rowsHtml = tasks.map(t => `
-      <tr data-cat="${esc(t.primary_category)}" data-sub="${esc(t.sub_service)}" onclick="filterBySubService(this.dataset.cat, this.dataset.sub)" title="Click to filter leads table to this Specific Task">
-        <td>
-          <div style="font-weight:600;color:#93c5fd;">${esc(t.sub_service)}</div>
-          <div style="font-size:0.74rem;color:var(--muted);">${esc(t.primary_category)}</div>
-        </td>
-        <td>
-          <span style="color:#34d399;font-weight:600;">${t.hiring_count || 0} Hiring</span> &middot;
-          <span style="color:#fbbf24;">${t.diy_count || 0} DIY</span> &middot;
-          <span style="color:#c084fc;">${t.provider_supply || 0} Supply</span>
-        </td>
-        <td>${fmtHr(t)}</td>
-        <td>${fmtFlat(t)}</td>
-        <td style="text-align:right;">
-          <button class="secondary" style="padding:4px 10px;font-size:0.76rem;">Filter Posts</button>
-        </td>
-      </tr>
-    `).join("");
+  const headerSubtitle = selectedPricingTrade === "all"
+    ? `Showing <strong>All Task Categories (${tasks.length})</strong> across all trades (select a Trade Category above to narrow, or click any row to filter posts below)`
+    : `Showing <strong>${tasks.length} Task Categories</strong> within <strong>${esc(selectedPricingTrade)}</strong> (click any row to filter posts below)`;
 
-    container.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-size:0.84rem;color:var(--text-secondary);">
-          Showing Specific Tasks within <strong>${esc(selectedPricingTrade)}</strong> (click any task row to filter posts below)
-        </div>
-        <button class="secondary" style="padding:5px 11px;font-size:0.78rem;" onclick="onPricingTradeSelect('all')">Back to All Trade Categories</button>
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:0.84rem;color:var(--text-secondary);">
+        ${headerSubtitle}
       </div>
-      <div class="table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th>Specific Task (Service)</th>
-              <th>Demand &amp; Supply Volume</th>
-              <th>Hourly Rate ($/hr)</th>
-              <th>Flat Job Price ($)</th>
-              <th style="text-align:right;">Action</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml || `<tr><td colspan="5" style="text-align:center;color:var(--muted);">No tasks found for this trade.</td></tr>`}</tbody>
-        </table>
-      </div>
-    `;
-  }
+      ${selectedPricingTrade !== "all" ? `<button class="secondary" style="padding:5px 11px;font-size:0.78rem;" onclick="onPricingTradeSelect('all')">Show All Trade Categories</button>` : ""}
+    </div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+      <table class="pricing-table">
+        <thead>
+          <tr>
+            <th>Task Category &amp; Trade</th>
+            <th>Demand &amp; Supply Volume</th>
+            <th>Hourly Rate ($/hr)</th>
+            <th>Flat Job Price ($)</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml || `<tr><td colspan="5" style="text-align:center;color:var(--muted);">No task categories found for this trade.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderCategoryBars(cats) {
@@ -849,7 +845,7 @@ function populateFilterDropdowns(sumRes) {
 
   const pSel = document.getElementById("pricing-trade-select");
   if (pSel) {
-    pSel.innerHTML = `<option value="all">All Trade Categories (Overview)</option>` +
+    pSel.innerHTML = `<option value="all">All Trade Categories (Show All Task Categories)</option>` +
       cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
     pSel.value = selectedPricingTrade;
   }
@@ -867,7 +863,7 @@ function updateSubServiceOptions() {
 
   let tasks = [];
   if (cat !== "all" && Array.isArray(subMap[cat])) {
-    tasks = subMap[cat];
+    tasks = [...subMap[cat]];
   } else {
     Object.values(subMap).forEach(arr => {
       (arr || []).forEach(t => {
@@ -876,7 +872,7 @@ function updateSubServiceOptions() {
     });
   }
 
-  const label = cat !== "all" ? `All Tasks in ${cat}` : "All Specific Tasks";
+  const label = cat !== "all" ? `All Task Categories in ${cat}` : "All Task Categories";
   subSel.innerHTML = `<option value="all">${esc(label)}</option>` +
     tasks.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
   subSel.value = tasks.includes(prevSub) ? prevSub : "all";
